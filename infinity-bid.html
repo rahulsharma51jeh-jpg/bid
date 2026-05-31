@@ -103,7 +103,6 @@
       <button data-panel="dpr" onclick="nav('dpr')">📋 Financial DPR</button>
       <button data-panel="profit" onclick="nav('profit')">💹 Profitability</button>
       <button data-panel="insights" onclick="nav('insights')">🤖 AI Insights</button>
-      <button data-panel="dsr" onclick="nav('dsr')">📚 DSR / State SOR</button>
       <button data-panel="market" onclick="nav('market')">🏷️ Market Rates</button>
       <button data-panel="coeff" onclick="nav('coeff')">📐 Coefficients</button>
       <button data-panel="tenders" onclick="nav('tenders')">📁 Tender History</button>
@@ -691,7 +690,7 @@ const STATE={panel:"dashboard",source:"cpwd",file:null,projectName:"",result:nul
    ============================================================ */
 function nav(p){STATE.panel=p;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.panel===p));render();if(window.innerWidth<760)document.getElementById("sidebar").classList.remove("open");}
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");}
-function render(){const m=document.getElementById("main");m.className="fade";m.innerHTML={dashboard:vDashboard,upload:vUpload,analysis:vAnalysis,dpr:vDPR,profit:vProfit,insights:vInsights,dsr:vDSR,market:vMarket,coeff:vCoeff,tenders:vTenders}[STATE.panel]();if(STATE.panel==="upload")bindUpload();if(STATE.panel==="dsr")renderDsrTable();}
+function render(){const m=document.getElementById("main");m.className="fade";m.innerHTML={dashboard:vDashboard,upload:vUpload,analysis:vAnalysis,dpr:vDPR,profit:vProfit,insights:vInsights,market:vMarket,coeff:vCoeff,tenders:vTenders}[STATE.panel]();if(STATE.panel==="upload")bindUpload();}
 
 function vDashboard(){
   return `<h1>Welcome to <span class="brand">Infinity Bid</span></h1>
@@ -714,8 +713,8 @@ function vDashboard(){
     ${step(4,"Financial DPR","Cost reports based on CPWD/Bihar DSR")}
   </div></div>
   <div class="grid g2" style="margin-top:20px">
-    <div class="card" style="background:linear-gradient(135deg,#eff6ff,#eef2ff)"><h3 style="color:#1e3a8a">🔵 CPWD DSR 2024</h3><p style="font-size:13px;color:#1d4ed8">Central Public Works Department — Delhi Schedule of Rates 2024. Covers earthwork, concrete, masonry, steel, plumbing & electrical.</p><button class="btn btn-ghost" style="margin-top:12px" onclick="STATE.dsrSource='cpwd';nav('dsr')">Browse CPWD Rates →</button></div>
-    <div class="card" style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5)"><h3 style="color:#14532d">🟢 Bihar DSR 2024</h3><p style="font-size:13px;color:#15803d">Bihar State PWD Schedule of Rates 2024. State-specific rates adjusted for local conditions, 10-20% lower than CPWD.</p><button class="btn btn-ghost" style="margin-top:12px" onclick="STATE.dsrSource='bihar';nav('dsr')">Browse Bihar Rates →</button></div>
+    <div class="card" style="background:linear-gradient(135deg,#eff6ff,#eef2ff)"><h3 style="color:#1e3a8a">💹 Profitability Analysis</h3><p style="font-size:13px;color:#1d4ed8">Gross Profit, Net Profit, Break-even point & margin of safety — computed from your BOQ value vs execution cost.</p><button class="btn btn-ghost" style="margin-top:12px" onclick="nav('profit')">Open Profitability →</button></div>
+    <div class="card" style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5)"><h3 style="color:#14532d">🤖 AI Insights</h3><p style="font-size:13px;color:#15803d">Automated anomaly detection on pricing outliers plus a BOQ validation engine for data-quality issues.</p><button class="btn btn-ghost" style="margin-top:12px" onclick="nav('insights')">Open AI Insights →</button></div>
   </div>`;
 }
 const stat=(ic,lbl,val,tr)=>`<div class="stat"><div style="display:flex;justify-content:space-between"><span style="font-size:18px">${ic}</span><span class="pill" style="background:#dcfce7;color:#15803d">${tr}</span></div><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`;
@@ -902,33 +901,6 @@ function vDPR(){
   <div class="note note-amber">📌 <strong>Note:</strong> This is a projected DPR based on BOQ analysis. Actual daily costs vary with work progress, weather & resource availability. Update daily for accurate tracking.</div>`;
 }
 function conicPie(cb){let acc=0;const segs=[["#3b82f6",cb.material],["#22c55e",cb.labor],["#eab308",cb.equipment],["#a855f7",cb.overhead]];const parts=segs.map(([c,p])=>{const s=`${c} ${acc}% ${acc+p}%`;acc+=p;return s;});return `conic-gradient(${parts.join(",")})`;}
-
-function vDSR(){
-  return `<h2>📚 DSR Rate Book</h2><p class="sub">Browse CPWD & Bihar DSR 2024 schedule of rates used for cost estimation</p>
-  <div class="card" style="margin-bottom:18px"><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
-    <div style="display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden">
-      <button class="btn" style="border-radius:0;background:${STATE.dsrSource==='cpwd'?'#2563eb':'var(--muted)'};color:${STATE.dsrSource==='cpwd'?'#fff':'var(--fg)'}" onclick="STATE.dsrSource='cpwd';render()">CPWD 2024</button>
-      <button class="btn" style="border-radius:0;background:${STATE.dsrSource==='bihar'?'#16a34a':'var(--muted)'};color:${STATE.dsrSource==='bihar'?'#fff':'var(--fg)'}" onclick="STATE.dsrSource='bihar';render()">Bihar 2024</button>
-    </div>
-    <select style="width:auto" onchange="STATE.dsrCat=this.value;renderDsrTable()" id="dsrCat"><option value="">All Categories</option>${[...new Set((STATE.dsrSource==='bihar'?BIHAR_RATES:CPWD_RATES).map(r=>r.category))].map(c=>`<option value="${c}" ${STATE.dsrCat===c?'selected':''}>${c.charAt(0).toUpperCase()+c.slice(1)}</option>`).join("")}</select>
-    <input style="flex:1;min-width:200px" placeholder="🔍 Search DSR items..." value="${STATE.dsrSearch}" oninput="STATE.dsrSearch=this.value;renderDsrTable()"/>
-  </div></div>
-  <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto" id="dsrTableWrap"></div></div>
-  <div class="grid g3" style="margin-top:16px">
-    <div class="note note-blue" style="margin:0">👷 <strong>Labor:</strong> Skilled & unskilled rates per minimum wages</div>
-    <div class="note note-blue" style="margin:0;background:#f0fdf4;color:#15803d;border-color:#bbf7d0">📦 <strong>Material:</strong> Market rates incl. transportation</div>
-    <div class="note note-amber" style="margin:0">🚜 <strong>Equipment:</strong> Machinery hire incl. fuel & operator</div>
-  </div>`;
-}
-function renderDsrTable(){
-  const wrap=document.getElementById("dsrTableWrap");if(!wrap)return;
-  let rates=(STATE.dsrSource==="bihar"?BIHAR_RATES:CPWD_RATES);
-  if(STATE.dsrCat)rates=rates.filter(r=>r.category===STATE.dsrCat);
-  if(STATE.dsrSearch){const s=STATE.dsrSearch.toLowerCase();rates=rates.filter(r=>r.description.toLowerCase().includes(s)||r.itemCode.toLowerCase().includes(s)||r.category.includes(s));}
-  wrap.innerHTML=`<table><thead><tr><th>Code</th><th>Description</th><th>Chapter</th><th>Category</th><th>Unit</th><th class="tr">Rate</th><th class="tr">Labor</th><th class="tr">Material</th><th class="tr">Equip.</th></tr></thead><tbody>
-  ${rates.map(r=>`<tr><td style="font-family:monospace;font-size:12px;color:#2563eb;font-weight:600">${r.itemCode}</td><td style="max-width:280px">${r.description}</td><td style="color:var(--muted-fg)">${r.chapter}</td><td><span class="pill" style="background:${CAT_COLORS[r.category]}22;color:${CAT_COLORS[r.category]}">${r.category}</span></td><td style="color:var(--muted-fg)">${r.unit}</td><td class="tr" style="font-weight:700">${fmtINR(r.rate)}</td><td class="tr" style="color:#16a34a">${r.laborRate?fmtINR(r.laborRate):'-'}</td><td class="tr" style="color:#2563eb">${r.materialRate?fmtINR(r.materialRate):'-'}</td><td class="tr" style="color:#ca8a04">${r.equipmentRate?fmtINR(r.equipmentRate):'-'}</td></tr>`).join("")}
-  </tbody></table>${rates.length?'':'<div style="padding:40px;text-align:center;color:var(--muted-fg)">No rates found matching your criteria</div>'}`;
-}
 
 const empty=(ic,t,d,btn,panel)=>`<div style="text-align:center;padding:80px 20px"><div style="font-size:50px;opacity:.4">${ic}</div><h2 style="margin-top:16px">${t}</h2><p class="sub" style="margin-top:6px">${d}</p><button class="btn btn-primary" onclick="nav('${panel}')">${btn}</button></div>`;
 

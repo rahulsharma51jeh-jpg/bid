@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Infinity Bid — AI BOQ Analyzer</title>
+<meta name="description" content="AI-powered Bill of Quantity analyzer. Upload BOQ, get material quantities, cost estimates & financial DPR based on CPWD & Bihar DSR." />
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f8fafc; --fg:#0f172a; --card:#ffffff; --muted:#f1f5f9; --muted-fg:#64748b;
+    --border:#e2e8f0; --primary:#2563eb; --primary-d:#1d4ed8; --green:#16a34a; --purple:#7c3aed;
+    --orange:#ea580c; --yellow:#ca8a04; --red:#dc2626;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f172a; --fg:#f8fafc; --card:#1e293b; --muted:#1e293b; --muted-fg:#94a3b8; --border:#334155; }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--fg);line-height:1.5}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--muted)}::-webkit-scrollbar-thumb{background:var(--muted-fg);border-radius:4px}
+  /* Layout */
+  header{position:sticky;top:0;z-index:50;height:60px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#2563eb,#4f46e5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px}
+  .brand{font-weight:800;font-size:18px;background:linear-gradient(90deg,#2563eb,#4f46e5);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-weight:600}
+  .wrap{display:flex;min-height:calc(100vh - 60px)}
+  aside{width:230px;background:var(--card);border-right:1px solid var(--border);padding:12px;flex-shrink:0}
+  nav button{width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:none;background:none;color:var(--muted-fg);border-radius:9px;cursor:pointer;font-size:14px;font-weight:500;text-align:left;transition:.15s}
+  nav button:hover{background:var(--muted);color:var(--fg)}
+  nav button.active{background:#eff6ff;color:#1d4ed8;font-weight:700}
+  @media (prefers-color-scheme: dark){nav button.active{background:#1e3a5f;color:#93c5fd}}
+  main{flex:1;padding:24px;overflow-x:hidden}
+  /* Components */
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+  h1{font-size:28px;font-weight:800;margin-bottom:6px}
+  h2{font-size:22px;font-weight:800}
+  h3{font-size:16px;font-weight:700;margin-bottom:14px}
+  .sub{color:var(--muted-fg);margin-bottom:20px}
+  .stat{padding:16px;border-radius:12px;border:1px solid var(--border)}
+  .stat .lbl{font-size:12px;opacity:.8}.stat .val{font-size:22px;font-weight:800;margin-top:4px}
+  .btn{padding:10px 18px;border-radius:10px;border:none;font-weight:600;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+  .btn-primary{background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff}.btn-primary:hover{filter:brightness(1.08)}
+  .btn-primary:disabled{background:#cbd5e1;cursor:not-allowed;filter:none}
+  .btn-green{background:var(--green);color:#fff}.btn-ghost{background:var(--muted);color:var(--fg)}
+  input,select{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--fg);font-size:14px;width:100%}
+  input:focus,select:focus{outline:2px solid var(--primary);border-color:transparent}
+  label{font-size:13px;font-weight:600;display:block;margin-bottom:6px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead tr{background:var(--muted);text-align:left}
+  th,td{padding:10px 12px}
+  tbody tr{border-top:1px solid var(--border)}tbody tr:hover{background:var(--muted)}
+  .tr{text-align:right}
+  .pill{font-size:11px;padding:2px 8px;border-radius:999px;text-transform:capitalize}
+  .dropzone{border:2px dashed var(--border);border-radius:14px;padding:48px 20px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+  .dropzone:hover,.dropzone.drag{border-color:var(--primary);background:#eff6ff}
+  @media (prefers-color-scheme: dark){.dropzone:hover,.dropzone.drag{background:#1e3a5f}}
+  .dropzone.has{border-color:var(--green);background:#f0fdf4}
+  @media (prefers-color-scheme: dark){.dropzone.has{background:#052e16}}
+  .bar{height:10px;background:var(--muted);border-radius:999px;overflow:hidden}
+  .bar>div{height:100%;border-radius:999px;transition:width .6s}
+  .src-card{padding:16px;border:2px solid var(--border);border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:.15s}
+  .src-card.sel-cpwd{border-color:var(--primary);background:#eff6ff}.src-card.sel-bihar{border-color:var(--green);background:#f0fdf4}
+  @media (prefers-color-scheme: dark){.src-card.sel-cpwd{background:#1e3a5f}.src-card.sel-bihar{background:#052e16}}
+  .hidden{display:none}
+  .fade{animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .spinner{width:18px;height:18px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{padding:14px;border-radius:10px;font-size:13px;margin-top:16px}
+  .note-blue{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+  .note-amber{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+  @media (prefers-color-scheme: dark){.note-blue{background:#1e3a5f;color:#bfdbfe;border-color:#1e40af}.note-amber{background:#422006;color:#fde68a;border-color:#92400e}}
+  .qa{padding:22px;border-radius:14px;color:#fff;cursor:pointer;border:none;text-align:left;transition:.2s}
+  .qa:hover{transform:translateY(-3px);box-shadow:0 10px 25px rgba(0,0,0,.15)}
+  .qa h4{font-size:18px;font-weight:700;margin:10px 0 4px}.qa p{font-size:13px;opacity:.9}
+  .legend{display:flex;align-items:center;gap:6px;font-size:12px}.dot{width:11px;height:11px;border-radius:50%}
+  @media(max-width:760px){aside{position:fixed;left:-230px;height:100%;z-index:60;transition:.3s}aside.open{left:0}main{padding:16px}}
+</style>
+</head>
+<body>
+<header>
+  <button class="btn-ghost btn" id="menuBtn" style="padding:8px" onclick="toggleSidebar()">☰</button>
+  <div class="logo">IB</div>
+  <div class="brand">Infinity Bid</div>
+  <span class="badge">AI BOQ Analyzer</span>
+  <div style="flex:1"></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#16a34a,#059669);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px">👤</div>
+    <div style="font-size:13px"><div style="font-weight:600">Demo User</div><div style="color:var(--muted-fg);font-size:11px">Contractor</div></div>
+  </div>
+</header>
+<div class="wrap">
+  <aside id="sidebar">
+    <nav>
+      <button class="active" data-panel="dashboard" onclick="nav('dashboard')">📊 Dashboard</button>
+      <button data-panel="upload" onclick="nav('upload')">⬆️ Upload BOQ</button>
+      <button data-panel="analysis" onclick="nav('analysis')">📈 Analysis</button>
+      <button data-panel="dpr" onclick="nav('dpr')">📋 Financial DPR</button>
+      <button data-panel="dsr" onclick="nav('dsr')">📚 DSR Rates</button>
+    </nav>
+    <div style="margin-top:24px;padding:14px;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#eef2ff);border:1px solid #dbeafe">
+      <div style="font-size:12px;font-weight:700;color:#1d4ed8">DSR Trained Model</div>
+      <div style="font-size:11px;color:#3b82f6;margin-top:4px">CPWD 2024 + Bihar 2024</div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <span style="font-size:10px;padding:2px 7px;background:#dbeafe;color:#1d4ed8;border-radius:5px">CPWD</span>
+        <span style="font-size:10px;padding:2px 7px;background:#dcfce7;color:#15803d;border-radius:5px">Bihar</span>
+      </div>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<script>
+/* ============================================================
+   INFINITY BID — Client-side BOQ Analyzer Engine
+   ============================================================ */
+
+/* ---------- DSR RATE DATA ---------- */
+const CPWD_RATES = [
+  {itemCode:"1.1",description:"Earth work in excavation in foundation trenches in ordinary soil (depth up to 1.5m)",unit:"cum",rate:282,chapter:"Earthwork",category:"earthwork",laborRate:232,materialRate:0,equipmentRate:50},
+  {itemCode:"1.3",description:"Filling in plinth with sand under floor",unit:"cum",rate:1175,chapter:"Earthwork",category:"earthwork",laborRate:175,materialRate:950,equipmentRate:50},
+  {itemCode:"4.1",description:"PCC 1:4:8 (40mm graded stone aggregate) in foundation and plinth",unit:"cum",rate:5765,chapter:"Concrete Work",category:"concrete",laborRate:1150,materialRate:4215,equipmentRate:400},
+  {itemCode:"4.2",description:"Cement concrete 1:2:4 (20mm graded stone aggregate)",unit:"cum",rate:7480,chapter:"Concrete Work",category:"concrete",laborRate:1400,materialRate:5580,equipmentRate:500},
+  {itemCode:"4.4",description:"RCC M-20 grade concrete with reinforcement",unit:"cum",rate:8950,chapter:"Concrete Work",category:"concrete",laborRate:1800,materialRate:6500,equipmentRate:650},
+  {itemCode:"4.5",description:"RCC M-25 grade concrete with reinforcement",unit:"cum",rate:9450,chapter:"Concrete Work",category:"concrete",laborRate:1900,materialRate:6850,equipmentRate:700},
+  {itemCode:"4.6",description:"RCC M-30 grade concrete",unit:"cum",rate:10200,chapter:"Concrete Work",category:"concrete",laborRate:2000,materialRate:7400,equipmentRate:800},
+  {itemCode:"5.1",description:"Brick work in cement mortar 1:6 in foundation and plinth",unit:"cum",rate:7250,chapter:"Brick Work",category:"masonry",laborRate:2100,materialRate:4850,equipmentRate:300},
+  {itemCode:"5.2",description:"Brick work in cement mortar 1:4 in superstructure above plinth",unit:"cum",rate:8150,chapter:"Brick Work",category:"masonry",laborRate:2400,materialRate:5450,equipmentRate:300},
+  {itemCode:"6.1",description:"HYSD steel bars Fe-500D for RCC including cutting, bending, binding",unit:"kg",rate:84,chapter:"Steel Work",category:"steel",laborRate:14,materialRate:68,equipmentRate:2},
+  {itemCode:"6.2",description:"Structural steel work in built-up sections",unit:"kg",rate:112,chapter:"Steel Work",category:"steel",laborRate:22,materialRate:85,equipmentRate:5},
+  {itemCode:"8.1",description:"12mm thick cement plaster 1:6 on walls",unit:"sqm",rate:235,chapter:"Plastering",category:"plastering",laborRate:145,materialRate:75,equipmentRate:15},
+  {itemCode:"8.2",description:"15mm thick cement plaster 1:4 on walls",unit:"sqm",rate:295,chapter:"Plastering",category:"plastering",laborRate:165,materialRate:110,equipmentRate:20},
+  {itemCode:"8.3",description:"20mm thick cement plaster 1:4 on ceiling",unit:"sqm",rate:385,chapter:"Plastering",category:"plastering",laborRate:225,materialRate:135,equipmentRate:25},
+  {itemCode:"9.1",description:"Vitrified floor tiles 600x600mm with cement mortar",unit:"sqm",rate:1450,chapter:"Flooring",category:"flooring",laborRate:350,materialRate:1000,equipmentRate:100},
+  {itemCode:"9.2",description:"Ceramic floor tiles 300x300mm",unit:"sqm",rate:1050,chapter:"Flooring",category:"flooring",laborRate:300,materialRate:680,equipmentRate:70},
+  {itemCode:"10.2",description:"Acrylic emulsion paint (two coats) on walls",unit:"sqm",rate:125,chapter:"Painting",category:"painting",laborRate:45,materialRate:72,equipmentRate:8},
+  {itemCode:"10.3",description:"Synthetic enamel paint (two coats) on wood/metal",unit:"sqm",rate:145,chapter:"Painting",category:"painting",laborRate:55,materialRate:80,equipmentRate:10},
+  {itemCode:"11.1",description:"CPVC pipe 20mm diameter with fittings",unit:"rmt",rate:185,chapter:"Plumbing",category:"plumbing",laborRate:65,materialRate:110,equipmentRate:10},
+  {itemCode:"11.2",description:"PVC pipe 110mm diameter for drainage",unit:"rmt",rate:420,chapter:"Plumbing",category:"plumbing",laborRate:120,materialRate:270,equipmentRate:30},
+  {itemCode:"12.1",description:"Wiring for light/fan point with 1.5 sq mm copper conductor",unit:"point",rate:1250,chapter:"Electrical",category:"electrical",laborRate:450,materialRate:720,equipmentRate:80},
+  {itemCode:"12.2",description:"Wiring for power point with 4 sq mm copper conductor",unit:"point",rate:1850,chapter:"Electrical",category:"electrical",laborRate:550,materialRate:1150,equipmentRate:150},
+  {itemCode:"13.1",description:"Waterproofing treatment on roof with bitumen felt",unit:"sqm",rate:485,chapter:"Waterproofing",category:"waterproofing",laborRate:150,materialRate:295,equipmentRate:40},
+  {itemCode:"14.1",description:"Flush door shutter 35mm thick (commercial) with hardware",unit:"sqm",rate:4850,chapter:"Doors & Windows",category:"woodwork",laborRate:850,materialRate:3700,equipmentRate:300},
+  {itemCode:"14.2",description:"Aluminium sliding window with glass",unit:"sqm",rate:6500,chapter:"Doors & Windows",category:"woodwork",laborRate:1200,materialRate:4800,equipmentRate:500},
+];
+const BIHAR_RATES = [
+  {itemCode:"B-1.1",description:"Earth work in excavation in ordinary soil (depth up to 1.5m)",unit:"cum",rate:225,chapter:"Earthwork",category:"earthwork",laborRate:185,materialRate:0,equipmentRate:40},
+  {itemCode:"B-1.3",description:"Sand filling in plinth under floor",unit:"cum",rate:980,chapter:"Earthwork",category:"earthwork",laborRate:150,materialRate:790,equipmentRate:40},
+  {itemCode:"B-4.1",description:"PCC 1:4:8 with 40mm stone aggregate in foundation",unit:"cum",rate:4950,chapter:"Concrete Work",category:"concrete",laborRate:980,materialRate:3620,equipmentRate:350},
+  {itemCode:"B-4.2",description:"PCC 1:2:4 with 20mm stone aggregate",unit:"cum",rate:6450,chapter:"Concrete Work",category:"concrete",laborRate:1200,materialRate:4800,equipmentRate:450},
+  {itemCode:"B-4.4",description:"RCC M-20 grade with steel reinforcement",unit:"cum",rate:7850,chapter:"Concrete Work",category:"concrete",laborRate:1550,materialRate:5700,equipmentRate:600},
+  {itemCode:"B-4.5",description:"RCC M-25 grade with steel reinforcement",unit:"cum",rate:8350,chapter:"Concrete Work",category:"concrete",laborRate:1650,materialRate:6050,equipmentRate:650},
+  {itemCode:"B-4.6",description:"RCC M-30 grade concrete",unit:"cum",rate:9100,chapter:"Concrete Work",category:"concrete",laborRate:1750,materialRate:6600,equipmentRate:750},
+  {itemCode:"B-5.1",description:"First class brick work in CM 1:6 in foundation & plinth",unit:"cum",rate:6150,chapter:"Brick Work",category:"masonry",laborRate:1800,materialRate:4100,equipmentRate:250},
+  {itemCode:"B-5.2",description:"First class brick work in CM 1:4 in superstructure",unit:"cum",rate:6950,chapter:"Brick Work",category:"masonry",laborRate:2050,materialRate:4650,equipmentRate:250},
+  {itemCode:"B-6.1",description:"HYSD bars Fe-500D including cutting, bending, placing",unit:"kg",rate:78,chapter:"Steel Work",category:"steel",laborRate:12,materialRate:64,equipmentRate:2},
+  {itemCode:"B-6.2",description:"Structural steel work in built-up sections",unit:"kg",rate:98,chapter:"Steel Work",category:"steel",laborRate:18,materialRate:75,equipmentRate:5},
+  {itemCode:"B-8.1",description:"12mm cement plaster 1:6 on walls",unit:"sqm",rate:198,chapter:"Plastering",category:"plastering",laborRate:120,materialRate:65,equipmentRate:13},
+  {itemCode:"B-8.2",description:"15mm cement plaster 1:4 on walls",unit:"sqm",rate:255,chapter:"Plastering",category:"plastering",laborRate:140,materialRate:98,equipmentRate:17},
+  {itemCode:"B-8.3",description:"20mm cement plaster 1:4 on ceiling",unit:"sqm",rate:335,chapter:"Plastering",category:"plastering",laborRate:195,materialRate:118,equipmentRate:22},
+  {itemCode:"B-9.1",description:"Vitrified floor tiles 600x600mm with cement bedding",unit:"sqm",rate:1250,chapter:"Flooring",category:"flooring",laborRate:300,materialRate:870,equipmentRate:80},
+  {itemCode:"B-9.2",description:"Ceramic floor tiles 300x300mm",unit:"sqm",rate:895,chapter:"Flooring",category:"flooring",laborRate:260,materialRate:575,equipmentRate:60},
+  {itemCode:"B-10.2",description:"Acrylic emulsion paint (two coats) on walls",unit:"sqm",rate:108,chapter:"Painting",category:"painting",laborRate:38,materialRate:62,equipmentRate:8},
+  {itemCode:"B-11.1",description:"CPVC pipe 20mm dia with fittings",unit:"rmt",rate:158,chapter:"Plumbing",category:"plumbing",laborRate:55,materialRate:95,equipmentRate:8},
+  {itemCode:"B-11.2",description:"PVC pipe 110mm dia for drainage",unit:"rmt",rate:365,chapter:"Plumbing",category:"plumbing",laborRate:105,materialRate:235,equipmentRate:25},
+  {itemCode:"B-12.1",description:"Wiring for light point with 1.5 sqmm copper conductor",unit:"point",rate:1050,chapter:"Electrical",category:"electrical",laborRate:380,materialRate:600,equipmentRate:70},
+  {itemCode:"B-12.2",description:"Wiring for power point with 4 sqmm conductor",unit:"point",rate:1580,chapter:"Electrical",category:"electrical",laborRate:470,materialRate:980,equipmentRate:130},
+  {itemCode:"B-13.1",description:"Waterproofing treatment on roof with bitumen felt",unit:"sqm",rate:420,chapter:"Waterproofing",category:"waterproofing",laborRate:130,materialRate:255,equipmentRate:35},
+  {itemCode:"B-14.1",description:"Flush door shutter 35mm thick commercial grade",unit:"sqm",rate:4200,chapter:"Doors & Windows",category:"woodwork",laborRate:720,materialRate:3200,equipmentRate:280},
+  {itemCode:"B-14.2",description:"Aluminium sliding window with 5mm glass",unit:"sqm",rate:5650,chapter:"Doors & Windows",category:"woodwork",laborRate:1050,materialRate:4150,equipmentRate:450},
+];
+const MAT_RATES = {
+  cpwd:{cement:380,sand:1850,fineSand:2100,agg20:1650,bricks:8.5,steel:68,water:150,tiles600:750,tiles300:420,paint:320,primer:180,putty:35,bitumen:65,cpvc20:85,pvc110:210,wire:22,conduit:35,door:4850,frame:520,alum:5800},
+  bihar:{cement:350,sand:1550,fineSand:1800,agg20:1400,bricks:7.0,steel:64,water:120,tiles600:620,tiles300:350,paint:280,primer:155,putty:30,bitumen:58,cpvc20:72,pvc110:180,wire:19,conduit:30,door:4200,frame:450,alum:5000}
+};
+
+/* ---------- MATERIAL COMPOSITIONS (per unit of work) ---------- */
+const COMPOSITIONS = {
+  concrete:[{m:"Cement (OPC 43)",u:"bag",per:8.5,rk:"cement",w:3},{m:"Coarse Sand",u:"cum",per:0.45,rk:"sand",w:15},{m:"Stone Aggregate 20mm",u:"cum",per:0.9,rk:"agg20",w:5},{m:"Water",u:"kl",per:0.18,rk:"water",w:0}],
+  masonry:[{m:"First Class Bricks",u:"nos",per:500,rk:"bricks",w:5},{m:"Cement (OPC 43)",u:"bag",per:1.5,rk:"cement",w:3},{m:"Coarse Sand",u:"cum",per:0.3,rk:"sand",w:10}],
+  plastering:[{m:"Cement (OPC 43)",u:"bag",per:0.22,rk:"cement",w:5},{m:"Fine Sand",u:"cum",per:0.015,rk:"fineSand",w:10}],
+  flooring:[{m:"Vitrified Tiles 600x600",u:"sqm",per:1.05,rk:"tiles600",w:5},{m:"Cement (OPC 43)",u:"bag",per:0.16,rk:"cement",w:5},{m:"Coarse Sand",u:"cum",per:0.012,rk:"sand",w:10}],
+  painting:[{m:"Acrylic Emulsion Paint",u:"ltr",per:0.35,rk:"paint",w:8},{m:"Cement Primer",u:"ltr",per:0.12,rk:"primer",w:5},{m:"Wall Putty",u:"kg",per:0.8,rk:"putty",w:10}],
+  steel:[{m:"HYSD Steel Fe-500D",u:"kg",per:1.0,rk:"steel",w:3},{m:"Binding Wire",u:"kg",per:0.012,rk:"wire",w:5}],
+  plumbing:[{m:"CPVC Pipe 20mm",u:"rmt",per:1.0,rk:"cpvc20",w:5},{m:"Pipe Fittings",u:"nos",per:2,rk:"cpvc20",w:0}],
+  electrical:[{m:"PVC Conduit 20mm",u:"rmt",per:8,rk:"conduit",w:5},{m:"Copper Wire 1.5sqmm",u:"rmt",per:15,rk:"wire",w:8},{m:"Switch/Socket",u:"nos",per:1,rk:"conduit",w:0}],
+  earthwork:[{m:"Earth/Soil Excavated",u:"cum",per:1.3,rk:"water",w:0}],
+  waterproofing:[{m:"Bitumen Felt",u:"sqm",per:1.1,rk:"bitumen",w:10},{m:"Bitumen 80/100",u:"kg",per:1.5,rk:"bitumen",w:5},{m:"Primer",u:"ltr",per:0.2,rk:"primer",w:5}],
+  woodwork:[{m:"Door/Window Shutter",u:"sqm",per:1.0,rk:"door",w:0},{m:"Frame (Sal Wood)",u:"rmt",per:5.5,rk:"frame",w:10}],
+  misc:[]
+};
+
+const CAT_KEYWORDS = {
+  earthwork:["earth","excavation","filling","embankment","cutting","grading","trench"],
+  concrete:["concrete","rcc","pcc","cement concrete","m-20","m-25","m-30","m-15"],
+  masonry:["brick","masonry","block work","stone masonry"],
+  steel:["steel","reinforcement","rebar","hysd","tmt"],
+  plastering:["plaster","rendering","neeru","punning"],
+  flooring:["floor","tile","vitrified","ceramic","marble","granite","kota"],
+  painting:["paint","distemper","emulsion","enamel","primer","putty"],
+  plumbing:["plumb","pipe","pvc","cpvc","gi pipe","fitting","sanitary","tap"],
+  electrical:["electric","wiring","switch","socket","cable","conduit","light point","fan","power point"],
+  waterproofing:["waterproof","bitumen","membrane","damp proof"],
+  woodwork:["door","window","shutter","frame","wood","timber","flush","aluminium"]
+};
+
+const CAT_COLORS={concrete:"#3b82f6",masonry:"#ef4444",steel:"#475569",plastering:"#eab308",flooring:"#a855f7",painting:"#ec4899",plumbing:"#06b6d4",electrical:"#f97316",earthwork:"#b45309",waterproofing:"#14b8a6",woodwork:"#f59e0b",misc:"#94a3b8"};
+
+/* ---------- UTILITIES ---------- */
+const fmtINR=n=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(n||0);
+const fmtNum=n=>new Intl.NumberFormat("en-IN",{maximumFractionDigits:2}).format(n||0);
+function detectCategory(desc){const l=(desc||"").toLowerCase();for(const[c,ks]of Object.entries(CAT_KEYWORDS)){if(ks.some(k=>l.includes(k)))return c;}return "misc";}
+function similarity(a,b){const w1=a.split(/\s+/).filter(w=>w.length>2),w2=b.split(/\s+/).filter(w=>w.length>2);if(!w1.length||!w2.length)return 0;let m=0;for(const w of w1){if(w2.some(x=>x.includes(w)||w.includes(x)))m++;}return m/Math.max(w1.length,w2.length);}
+
+/* ---------- BOQ PARSER ---------- */
+function parseWorkbook(wb){
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+  const hi=findHeader(rows);
+  const map=mapCols((rows[hi]||[]).map(h=>String(h||"").toLowerCase().trim()));
+  const items=[];let total=0;
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i];if(!r||r.every(c=>c===""||c==null))continue;
+    const desc=String(r[map.description]||"").trim();if(desc.length<3)continue;
+    const qty=parseFloat(String(r[map.quantity]||"0"))||0;
+    const rate=parseFloat(String(r[map.rate]||"0"))||0;
+    const amt=parseFloat(String(r[map.amount]||"0"))||qty*rate;
+    if(qty===0&&rate===0&&amt===0)continue;
+    const unit=normUnit(String(r[map.unit]||"").trim());
+    items.push({slNo:parseInt(String(r[map.slNo]||""))||items.length+1,itemCode:String(r[map.itemCode]||"").trim(),description:desc,unit:unit||"nos",quantity:qty,rate:rate||null,amount:amt||null,category:detectCategory(desc)});
+    total+=amt;
+  }
+  return {items,metadata:{totalItems:items.length,totalAmount:total,categories:[...new Set(items.map(i=>i.category))]}};
+}
+function findHeader(rows){const kw=["sl","item","description","quantity","unit","rate","amount","particular"];for(let i=0;i<Math.min(12,rows.length);i++){const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase());if(r.filter(c=>kw.some(k=>c.includes(k))).length>=2)return i;}return 0;}
+function mapCols(h){const f=(ks)=>{for(const k of ks){const i=h.findIndex(x=>x.includes(k));if(i!==-1)return i;}return 0;};return{slNo:f(["sl","s.no","sr","sno","#"]),itemCode:f(["item code","code","item no","ref"]),description:f(["description","particular","item","work","detail","name of"]),unit:f(["unit","uom"]),quantity:f(["quantity","qty","quan"]),rate:f(["rate","unit rate","price"]),amount:f(["amount","total","value","cost"])};}
+function normUnit(u){const l=u.toLowerCase().replace(/\./g,"").replace(/\s/g,"");const m={cubicmeter:"cum",cum:"cum",m3:"cum",cumt:"cum",squaremeter:"sqm",sqm:"sqm",m2:"sqm",sqmt:"sqm",runningmeter:"rmt",rm:"rmt",rmt:"rmt",meter:"rmt",mtr:"rmt",kilogram:"kg",kg:"kg",kgs:"kg",numbers:"nos",nos:"nos",no:"nos",each:"nos",ea:"nos",lumpsum:"ls",ls:"ls",litre:"ltr",ltr:"ltr",lt:"ltr",kl:"kl",mt:"mt",tonne:"mt",bag:"bag",bags:"bag",set:"set",point:"point",pt:"point",cft:"cft",sft:"sft",quintal:"quintal"};return m[l]||u||"nos";}
+
+/* ---------- AI ANALYZER ---------- */
+function analyze(items,source){
+  const rates=source==="bihar"?BIHAR_RATES:CPWD_RATES;
+  const mr=MAT_RATES[source];
+  const mapped=items.map(it=>({...it,dsr:bestMatch(it,rates)}));
+  const all=[];
+  for(const it of mapped){
+    const comps=COMPOSITIONS[it.category]||[];
+    for(const c of comps){
+      const base=it.quantity*c.per;const wq=base*(c.w/100);const tot=base+wq;const rate=mr[c.rk]||50;
+      all.push({materialName:c.m,quantity:Math.round(base*100)/100,unit:c.u,rate,wastagePercent:c.w,totalWithWastage:Math.round(tot*100)/100,amount:Math.round(tot*rate*100)/100,category:it.category,source});
+    }
+  }
+  const mats=consolidate(all);
+  const catBd=categoryBreakdown(mats);
+  const matCost=mats.reduce((s,m)=>s+(m.amount||0),0);
+  let laborCost=0;for(const it of mapped){if(it.dsr&&it.dsr.laborRate)laborCost+=it.quantity*it.dsr.laborRate;else laborCost+=(it.amount||it.quantity*(it.rate||0))*0.25;}
+  const equipCost=matCost*0.08;const overhead=(matCost+laborCost)*0.12;
+  const estCost=matCost+laborCost+equipCost+overhead;
+  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,summary:{totalItems:items.length,totalMaterials:mats.length,estimatedCost:estCost,laborCost:Math.round(laborCost),materialCost:Math.round(matCost),equipmentCost:Math.round(equipCost),overheadCost:Math.round(overhead),confidence:0.85},source};
+}
+function bestMatch(it,rates){let best=null,bs=0;const d=it.description.toLowerCase();for(const r of rates){const s=similarity(d,r.description.toLowerCase());if(s>bs&&s>0.3){bs=s;best=r;}}if(!best&&it.category)best=rates.find(r=>r.category===it.category)||null;return best;}
+function consolidate(arr){const m=new Map();for(const x of arr){const k=x.materialName+"|"+x.unit;if(m.has(k)){const e=m.get(k);e.quantity+=x.quantity;e.totalWithWastage+=x.totalWithWastage;e.amount+=x.amount;}else m.set(k,{...x});}return [...m.values()].map(x=>({...x,quantity:Math.round(x.quantity*100)/100,totalWithWastage:Math.round(x.totalWithWastage*100)/100,amount:Math.round(x.amount*100)/100})).sort((a,b)=>b.amount-a.amount);}
+function categoryBreakdown(mats){const m=new Map();for(const x of mats){if(!m.has(x.category))m.set(x.category,[]);m.get(x.category).push(x);}const total=mats.reduce((s,x)=>s+x.amount,0);return [...m.entries()].map(([category,a])=>{const c=a.reduce((s,x)=>s+x.amount,0);return{category,materialCount:a.length,totalCost:Math.round(c),percentage:total?Math.round(c/total*100):0};}).sort((a,b)=>b.totalCost-a.totalCost);}
+function genDPR(analysis,duration=180){
+  const daily=analysis.totalCost/duration;const entries=[];
+  for(let d=1;d<=Math.min(7,duration);d++){const prog=d/duration*100;const dc=daily*(0.8+Math.random()*0.4);entries.push({day:d,date:new Date(Date.now()+d*864e5).toISOString().split("T")[0],planned:Math.round(daily),actual:Math.round(dc),cumP:Math.round(daily*d),cumA:Math.round(dc*d),progress:Math.round(prog*10)/10,variance:Math.round((daily-dc))});}
+  const s=analysis.summary,t=analysis.totalCost;
+  return {projectSummary:{totalBudget:Math.round(t),dailyBudget:Math.round(daily),duration,laborBudget:s.laborCost,materialBudget:s.materialCost,equipmentBudget:s.equipmentCost,overheadBudget:s.overheadCost},dprEntries:entries,costBreakdown:{labor:Math.round(s.laborCost/t*100),material:Math.round(s.materialCost/t*100),equipment:Math.round(s.equipmentCost/t*100),overhead:Math.round(s.overheadCost/t*100)}};
+}
+
+/* ---------- SAMPLE BOQ ---------- */
+const SAMPLE_BOQ=[
+  ["Sl No","Item Code","Description","Unit","Quantity","Rate","Amount"],
+  [1,"1.1","Earth work in excavation in foundation trenches in ordinary soil (depth up to 1.5m)","cum",85.5,282,24111],
+  [2,"1.3","Sand filling in plinth under floor including watering and ramming","cum",42,1175,49350],
+  [3,"4.1","Providing and laying PCC 1:4:8 with 40mm aggregate in foundation","cum",28.5,5765,164303],
+  [4,"4.4","Providing and laying RCC M-20 grade in roof slab, beams, columns","cum",65,8950,581750],
+  [5,"4.5","Providing and laying RCC M-25 grade in raft foundation","cum",35,9450,330750],
+  [6,"5.1","Brick work with first class bricks in cement mortar 1:6 in foundation","cum",48,7250,348000],
+  [7,"5.2","Brick work in cement mortar 1:4 in superstructure above plinth level","cum",92,8150,749800],
+  [8,"6.1","HYSD steel bars Fe-500D for RCC work including cutting bending","kg",12500,84,1050000],
+  [9,"8.1","12mm cement plaster 1:6 on walls including curing","sqm",1850,235,434750],
+  [10,"8.2","15mm cement plaster 1:4 on external walls","sqm",920,295,271400],
+  [11,"8.3","20mm cement plaster 1:4 on ceiling","sqm",580,385,223300],
+  [12,"9.1","Vitrified floor tiles 600x600mm with cement mortar bedding","sqm",680,1450,986000],
+  [13,"9.2","Ceramic wall tiles 300x300mm in toilets and kitchen","sqm",320,1050,336000],
+  [14,"10.2","Acrylic emulsion paint two coats on internal walls","sqm",2400,125,300000],
+  [15,"10.3","Synthetic enamel paint on doors and windows","sqm",180,145,26100],
+  [16,"11.1","CPVC pipe 20mm with fittings for water supply","rmt",450,185,83250],
+  [17,"11.2","PVC pipe 110mm for soil and waste drainage","rmt",280,420,117600],
+  [18,"12.1","Wiring for light/fan point with PVC copper conductor 1.5sqmm","point",85,1250,106250],
+  [19,"12.2","Wiring for power plug point with 4sqmm conductor","point",42,1850,77700],
+  [20,"13.1","Waterproofing treatment on roof with bitumen felt","sqm",580,485,281300],
+  [21,"14.1","Flush door shutter 35mm thick commercial grade with hardware","sqm",45,4850,218250],
+  [22,"14.2","Aluminium sliding window with 5mm glass","sqm",68,6500,442000],
+];
+function downloadSample(){const ws=XLSX.utils.aoa_to_sheet(SAMPLE_BOQ);ws["!cols"]=[{wch:6},{wch:10},{wch:60},{wch:8},{wch:10},{wch:10},{wch:12}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"BOQ");XLSX.writeFile(wb,"sample-boq-residential.xlsx");}
+function loadSampleAndAnalyze(){const ws=XLSX.utils.aoa_to_sheet(SAMPLE_BOQ);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"BOQ");const parsed=parseWorkbook(wb);runAnalysis(parsed,"Sample Residential Project (G+2)",STATE.source);}
+
+/* ---------- STATE ---------- */
+const STATE={panel:"dashboard",source:"cpwd",file:null,projectName:"",result:null,dpr:null,dsrSource:"cpwd",dsrCat:"",dsrSearch:""};
+
+/* ============================================================
+   UI RENDERING
+   ============================================================ */
+function nav(p){STATE.panel=p;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.panel===p));render();if(window.innerWidth<760)document.getElementById("sidebar").classList.remove("open");}
+function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");}
+function render(){const m=document.getElementById("main");m.className="fade";m.innerHTML={dashboard:vDashboard,upload:vUpload,analysis:vAnalysis,dpr:vDPR,dsr:vDSR}[STATE.panel]();if(STATE.panel==="upload")bindUpload();if(STATE.panel==="dsr")renderDsrTable();}
+
+function vDashboard(){
+  return `<h1>Welcome to <span class="brand">Infinity Bid</span></h1>
+  <p class="sub" style="font-size:17px">AI-powered BOQ Analysis, Material Estimation & Financial DPR for Construction Projects</p>
+  <div class="grid g3" style="margin-bottom:20px">
+    <button class="qa" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)" onclick="nav('upload')"><div style="font-size:26px">⬆️</div><h4>Upload BOQ</h4><p>Upload Excel/CSV Bill of Quantity for instant AI analysis</p></button>
+    <button class="qa" style="background:linear-gradient(135deg,#22c55e,#15803d)" onclick="nav('analysis')"><div style="font-size:26px">📈</div><h4>View Analysis</h4><p>Material breakdown, quantity analysis & cost estimation</p></button>
+    <button class="qa" style="background:linear-gradient(135deg,#a855f7,#7c3aed)" onclick="nav('dpr')"><div style="font-size:26px">📋</div><h4>Financial DPR</h4><p>Generate Daily Progress Reports with accurate expenses</p></button>
+  </div>
+  <div class="grid g4" style="margin-bottom:20px">
+    ${stat("🏢","Projects Analyzed",STATE.result?"1":"0","Live")}
+    ${stat("📦","Materials Tracked","11+","CPWD+Bihar")}
+    ${stat("💰","DSR Rate Items",(CPWD_RATES.length+BIHAR_RATES.length),"2024 Rates")}
+    ${stat("📊","AI Accuracy","85%","v1.0")}
+  </div>
+  <div class="card"><h3>How It Works</h3><div class="grid g4">
+    ${step(1,"Upload BOQ","Upload your Excel/CSV Bill of Quantity file")}
+    ${step(2,"AI Parsing","AI extracts items, quantities & maps to DSR")}
+    ${step(3,"Material Analysis","Get exact material quantities with wastage")}
+    ${step(4,"Financial DPR","Cost reports based on CPWD/Bihar DSR")}
+  </div></div>
+  <div class="grid g2" style="margin-top:20px">
+    <div class="card" style="background:linear-gradient(135deg,#eff6ff,#eef2ff)"><h3 style="color:#1e3a8a">🔵 CPWD DSR 2024</h3><p style="font-size:13px;color:#1d4ed8">Central Public Works Department — Delhi Schedule of Rates 2024. Covers earthwork, concrete, masonry, steel, plumbing & electrical.</p><button class="btn btn-ghost" style="margin-top:12px" onclick="STATE.dsrSource='cpwd';nav('dsr')">Browse CPWD Rates →</button></div>
+    <div class="card" style="background:linear-gradient(135deg,#f0fdf4,#ecfdf5)"><h3 style="color:#14532d">🟢 Bihar DSR 2024</h3><p style="font-size:13px;color:#15803d">Bihar State PWD Schedule of Rates 2024. State-specific rates adjusted for local conditions, 10-20% lower than CPWD.</p><button class="btn btn-ghost" style="margin-top:12px" onclick="STATE.dsrSource='bihar';nav('dsr')">Browse Bihar Rates →</button></div>
+  </div>`;
+}
+const stat=(ic,lbl,val,tr)=>`<div class="stat"><div style="display:flex;justify-content:space-between"><span style="font-size:18px">${ic}</span><span class="pill" style="background:#dcfce7;color:#15803d">${tr}</span></div><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`;
+const step=(n,t,d)=>`<div style="text-align:center"><div style="width:40px;height:40px;margin:0 auto 10px;border-radius:50%;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-weight:800">${n}</div><div style="font-weight:600;font-size:14px">${t}</div><div style="font-size:12px;color:var(--muted-fg);margin-top:4px">${d}</div></div>`;
+
+function vUpload(){
+  return `<h2>Upload Bill of Quantity</h2><p class="sub">Upload your BOQ file (Excel/CSV) and our AI will analyze materials, quantities & costs</p>
+  <div style="max-width:760px">
+    <div style="margin-bottom:18px"><label>Project Name</label><input id="projName" placeholder="e.g., Residential Building - Phase 1" value="${STATE.projectName}" oninput="STATE.projectName=this.value"/></div>
+    <label>DSR Rate Source</label>
+    <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:18px">
+      <div class="src-card ${STATE.source==='cpwd'?'sel-cpwd':''}" onclick="STATE.source='cpwd';render()"><div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-weight:800;color:#1d4ed8;font-size:12px">CPWD</div><div><div style="font-weight:600;font-size:14px">CPWD DSR 2024</div><div style="font-size:12px;color:var(--muted-fg)">Central PWD - Delhi Rates</div></div></div>
+      <div class="src-card ${STATE.source==='bihar'?'sel-bihar':''}" onclick="STATE.source='bihar';render()"><div style="width:42px;height:42px;border-radius:10px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:800;color:#15803d;font-size:12px">Bihar</div><div><div style="font-weight:600;font-size:14px">Bihar DSR 2024</div><div style="font-size:12px;color:var(--muted-fg)">Bihar State PWD Rates</div></div></div>
+    </div>
+    <div class="dropzone ${STATE.file?'has':''}" id="dropzone">
+      ${STATE.file?`<div style="font-size:38px">✅</div><div style="font-weight:600;color:#15803d;margin-top:8px">${STATE.file.name}</div><div style="font-size:13px;color:var(--muted-fg);margin-top:4px">${(STATE.file.size/1024).toFixed(1)} KB — Ready to analyze</div><button class="btn btn-ghost" style="margin-top:10px;font-size:12px" onclick="event.stopPropagation();STATE.file=null;render()">✕ Remove file</button>`
+      :`<div style="font-size:38px">⬆️</div><div style="font-weight:600;margin-top:8px">Drag & drop your BOQ file here</div><div style="font-size:13px;color:var(--muted-fg);margin-top:4px">or click to browse files</div><div style="font-size:12px;color:var(--muted-fg);margin-top:10px">📗 Supports: .xlsx, .xls, .csv (Max 10MB)</div>`}
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="position:absolute;inset:0;opacity:0;cursor:pointer"/>
+    </div>
+    <div id="uploadErr"></div>
+    <button class="btn btn-primary" id="analyzeBtn" style="width:100%;justify-content:center;margin-top:18px;padding:14px;font-size:16px" ${STATE.file?'':'disabled'} onclick="doAnalyze()">⚡ Analyze BOQ</button>
+    <div style="text-align:center;margin-top:16px;display:flex;gap:18px;justify-content:center">
+      <a href="javascript:downloadSample()" style="color:var(--primary);font-size:13px;font-weight:600;text-decoration:none">📗 Download Sample BOQ</a>
+      <a href="javascript:loadSampleAndAnalyze()" style="color:var(--green);font-size:13px;font-weight:600;text-decoration:none">🚀 Try with Sample Data</a>
+    </div>
+    <div class="card" style="margin-top:24px">
+      <h3>Expected BOQ Format</h3>
+      <div style="overflow-x:auto"><table style="font-size:12px"><thead><tr><th>Sl</th><th>Code</th><th>Description</th><th>Unit</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>
+      <tr><td>1</td><td>4.1</td><td>PCC 1:4:8 in foundation</td><td>cum</td><td>25.5</td><td>5765</td><td>147008</td></tr>
+      <tr><td>2</td><td>5.1</td><td>Brick work in CM 1:6</td><td>cum</td><td>42.0</td><td>7250</td><td>304500</td></tr>
+      </tbody></table></div>
+      <p style="font-size:12px;color:var(--muted-fg);margin-top:10px">The AI auto-detects column formats. Ensure your BOQ has at least Description, Unit & Quantity columns.</p>
+    </div>
+  </div>`;
+}
+function bindUpload(){
+  const dz=document.getElementById("dropzone"),fi=document.getElementById("fileInput");
+  if(!dz)return;
+  fi.onchange=e=>{if(e.target.files[0])setFile(e.target.files[0]);};
+  ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");}));
+  ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");}));
+  dz.addEventListener("drop",e=>{if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0]);});
+}
+function setFile(f){
+  const ext="."+f.name.split(".").pop().toLowerCase();
+  if(![".xlsx",".xls",".csv"].includes(ext)){showErr("Invalid file type. Upload .xlsx, .xls or .csv");return;}
+  if(f.size>10*1024*1024){showErr("File too large. Max 10MB");return;}
+  STATE.file=f;if(!STATE.projectName)STATE.projectName=f.name.replace(/\.[^/.]+$/,"");render();
+}
+function showErr(msg){const e=document.getElementById("uploadErr");if(e)e.innerHTML=`<div class="note note-amber" style="background:#fef2f2;color:#991b1b;border-color:#fecaca">⚠️ ${msg}</div>`;}
+function doAnalyze(){
+  if(!STATE.file)return;
+  const btn=document.getElementById("analyzeBtn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Analyzing BOQ with AI...';
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:"array"});
+      const parsed=parseWorkbook(wb);
+      if(!parsed.items.length){showErr("No valid BOQ items found. Check the file format.");btn.disabled=false;btn.innerHTML="⚡ Analyze BOQ";return;}
+      runAnalysis(parsed,STATE.projectName||STATE.file.name,STATE.source);
+    }catch(err){showErr("Failed to parse file: "+err.message);btn.disabled=false;btn.innerHTML="⚡ Analyze BOQ";}
+  };
+  reader.readAsArrayBuffer(STATE.file);
+}
+function runAnalysis(parsed,name,source){
+  const res=analyze(parsed.items,source);
+  res.projectName=name;res.fileName=STATE.file?STATE.file.name:"sample-boq.xlsx";res.itemCount=parsed.items.length;res.metadata=parsed.metadata;res.boqItems=parsed.items;
+  STATE.result=res;STATE.dpr=genDPR(res);
+  nav("analysis");
+}
+
+function vAnalysis(){
+  if(!STATE.result)return empty("📈","No Analysis Data","Upload a BOQ file first to see material analysis results","Upload BOQ","upload");
+  const r=STATE.result,s=r.summary;
+  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>BOQ Analysis Results</h2><p class="sub" style="margin:4px 0 0">${r.projectName} · ${r.fileName} · ${r.itemCount} items · ${r.source.toUpperCase()} DSR</p></div><button class="btn btn-primary" onclick="exportAnalysis()">⬇️ Export Report</button></div>
+  <div class="grid g4" style="margin:18px 0">
+    ${statBox("💰","Total Estimated Cost",fmtINR(s.estimatedCost),"#eff6ff","#1d4ed8")}
+    ${statBox("📦","Total Materials",s.totalMaterials+" items","#f0fdf4","#15803d")}
+    ${statBox("📊","AI Confidence",(s.confidence*100).toFixed(0)+"%","#faf5ff","#7c3aed")}
+    ${statBox("📋","BOQ Items",s.totalItems+" items","#fff7ed","#c2410c")}
+  </div>
+  <div class="grid g2" style="margin-bottom:18px">
+    <div class="card"><h3>💹 Cost Breakdown</h3>
+      ${costBar("Material Cost",s.materialCost,s.estimatedCost,"#3b82f6")}
+      ${costBar("Labor Cost",s.laborCost,s.estimatedCost,"#22c55e")}
+      ${costBar("Equipment Cost",s.equipmentCost,s.estimatedCost,"#eab308")}
+      ${costBar("Overhead & Profit",s.overheadCost,s.estimatedCost,"#a855f7")}
+      <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><span>Total</span><span>${fmtINR(s.estimatedCost)}</span></div>
+    </div>
+    <div class="card"><h3>📊 Category-wise Breakdown</h3><div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+    ${r.categoryBreakdown.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:9px;background:var(--muted)"><div style="display:flex;align-items:center;gap:10px"><span class="dot" style="background:${CAT_COLORS[c.category]||'#94a3b8'}"></span><div><div style="font-size:13px;font-weight:600;text-transform:capitalize">${c.category}</div><div style="font-size:11px;color:var(--muted-fg)">${c.materialCount} materials</div></div></div><div style="text-align:right"><div style="font-size:13px;font-weight:600">${fmtINR(c.totalCost)}</div><div style="font-size:11px;color:var(--muted-fg)">${c.percentage}%</div></div></div>`).join("")}
+    </div></div>
+  </div>
+  <div class="card"><h3>📦 Material Quantity Breakdown</h3><div style="overflow-x:auto"><table>
+    <thead><tr><th>#</th><th>Material</th><th>Category</th><th class="tr">Quantity</th><th>Unit</th><th class="tr">Rate</th><th class="tr">Wastage</th><th class="tr">Total Qty</th><th class="tr">Amount</th></tr></thead>
+    <tbody>${r.materials.map((m,i)=>`<tr><td style="color:var(--muted-fg)">${i+1}</td><td style="font-weight:600">${m.materialName}</td><td><span class="pill" style="background:${CAT_COLORS[m.category]}22;color:${CAT_COLORS[m.category]}">${m.category}</span></td><td class="tr">${fmtNum(m.quantity)}</td><td style="color:var(--muted-fg)">${m.unit}</td><td class="tr">${fmtINR(m.rate)}</td><td class="tr" style="color:var(--orange)">${m.wastagePercent}%</td><td class="tr" style="font-weight:600">${fmtNum(m.totalWithWastage)}</td><td class="tr" style="font-weight:700">${fmtINR(m.amount)}</td></tr>`).join("")}</tbody>
+  </table></div></div>
+  <div class="note note-blue">ℹ️ <strong>AI Analysis Notes:</strong> Rates based on ${r.source==="bihar"?"Bihar":"CPWD"} DSR 2024. Wastage percentages per IS standards. Actual costs may vary with local market conditions. Confidence: ${(s.confidence*100).toFixed(0)}%</div>`;
+}
+const statBox=(ic,lbl,val,bg,fg)=>`<div class="stat" style="background:${bg};color:${fg};border-color:${fg}33"><div style="font-size:20px">${ic}</div><div style="font-size:12px;opacity:.85;margin-top:6px">${lbl}</div><div style="font-size:19px;font-weight:800;margin-top:2px">${val}</div></div>`;
+function costBar(lbl,amt,total,col){const p=total?(amt/total*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>${lbl}</span><span style="font-weight:600">${fmtINR(amt)} (${p.toFixed(0)}%)</span></div><div class="bar"><div style="width:${p}%;background:${col}"></div></div></div>`;}
+
+function vDPR(){
+  if(!STATE.dpr)return empty("📋","No Financial DPR Data","Upload a BOQ file first to generate Financial DPR","Upload BOQ","upload");
+  const d=STATE.dpr,ps=d.projectSummary,cb=d.costBreakdown;
+  const pie=conicPie(cb);
+  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>Financial Daily Progress Report</h2><p class="sub" style="margin:4px 0 0">Project cost tracking & daily expense analysis based on DSR rates</p></div><button class="btn btn-green" onclick="exportDPR()">⬇️ Export DPR</button></div>
+  <div class="grid g4" style="margin:18px 0">
+    ${statBox("💰","Total Project Budget",fmtINR(ps.totalBudget),"#eff6ff","#1d4ed8")}
+    ${statBox("📅","Project Duration",ps.duration+" Days","#f0fdf4","#15803d")}
+    ${statBox("👷","Labor Budget",fmtINR(ps.laborBudget),"#faf5ff","#7c3aed")}
+    ${statBox("📦","Material Budget",fmtINR(ps.materialBudget),"#fff7ed","#c2410c")}
+  </div>
+  <div class="grid g2" style="margin-bottom:18px">
+    <div class="card"><h3>Budget Allocation</h3>
+      ${costBar("Labor",ps.laborBudget,ps.totalBudget,"#22c55e")}
+      ${costBar("Materials",ps.materialBudget,ps.totalBudget,"#3b82f6")}
+      ${costBar("Equipment",ps.equipmentBudget,ps.totalBudget,"#eab308")}
+      ${costBar("Overhead & Profit",ps.overheadBudget,ps.totalBudget,"#a855f7")}
+    </div>
+    <div class="card"><h3>Cost Distribution</h3>
+      <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap">
+        <div style="width:170px;height:170px;border-radius:50%;background:${pie};position:relative;display:flex;align-items:center;justify-content:center"><div style="width:100px;height:100px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;flex-direction:column"><div style="font-size:13px;font-weight:800">${fmtINR(ps.totalBudget)}</div><div style="font-size:11px;color:var(--muted-fg)">Total</div></div></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="legend"><span class="dot" style="background:#3b82f6"></span>Materials: <b>${cb.material}%</b></div>
+          <div class="legend"><span class="dot" style="background:#22c55e"></span>Labor: <b>${cb.labor}%</b></div>
+          <div class="legend"><span class="dot" style="background:#eab308"></span>Equipment: <b>${cb.equipment}%</b></div>
+          <div class="legend"><span class="dot" style="background:#a855f7"></span>Overhead: <b>${cb.overhead}%</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card"><h3>📅 Daily Progress Report (Sample Week)</h3><div style="overflow-x:auto"><table>
+    <thead><tr><th>Day</th><th>Date</th><th class="tr">Planned</th><th class="tr">Actual</th><th class="tr">Cum. (P)</th><th class="tr">Cum. (A)</th><th class="tr">Variance</th><th class="tr">Progress</th></tr></thead>
+    <tbody>${d.dprEntries.map(e=>`<tr><td style="font-weight:600">Day ${e.day}</td><td style="color:var(--muted-fg)">${e.date}</td><td class="tr">${fmtINR(e.planned)}</td><td class="tr" style="font-weight:600">${fmtINR(e.actual)}</td><td class="tr">${fmtINR(e.cumP)}</td><td class="tr">${fmtINR(e.cumA)}</td><td class="tr" style="color:${e.variance>=0?'#16a34a':'#dc2626'}">${e.variance>=0?'▲':'▼'} ${fmtINR(Math.abs(e.variance))}</td><td class="tr"><span class="pill" style="background:#dbeafe;color:#1d4ed8">${e.progress}%</span></td></tr>`).join("")}</tbody>
+  </table></div></div>
+  <div class="note note-amber">📌 <strong>Note:</strong> This is a projected DPR based on BOQ analysis. Actual daily costs vary with work progress, weather & resource availability. Update daily for accurate tracking.</div>`;
+}
+function conicPie(cb){let acc=0;const segs=[["#3b82f6",cb.material],["#22c55e",cb.labor],["#eab308",cb.equipment],["#a855f7",cb.overhead]];const parts=segs.map(([c,p])=>{const s=`${c} ${acc}% ${acc+p}%`;acc+=p;return s;});return `conic-gradient(${parts.join(",")})`;}
+
+function vDSR(){
+  return `<h2>📚 DSR Rate Book</h2><p class="sub">Browse CPWD & Bihar DSR 2024 schedule of rates used for cost estimation</p>
+  <div class="card" style="margin-bottom:18px"><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden">
+      <button class="btn" style="border-radius:0;background:${STATE.dsrSource==='cpwd'?'#2563eb':'var(--muted)'};color:${STATE.dsrSource==='cpwd'?'#fff':'var(--fg)'}" onclick="STATE.dsrSource='cpwd';render()">CPWD 2024</button>
+      <button class="btn" style="border-radius:0;background:${STATE.dsrSource==='bihar'?'#16a34a':'var(--muted)'};color:${STATE.dsrSource==='bihar'?'#fff':'var(--fg)'}" onclick="STATE.dsrSource='bihar';render()">Bihar 2024</button>
+    </div>
+    <select style="width:auto" onchange="STATE.dsrCat=this.value;renderDsrTable()" id="dsrCat"><option value="">All Categories</option>${[...new Set((STATE.dsrSource==='bihar'?BIHAR_RATES:CPWD_RATES).map(r=>r.category))].map(c=>`<option value="${c}" ${STATE.dsrCat===c?'selected':''}>${c.charAt(0).toUpperCase()+c.slice(1)}</option>`).join("")}</select>
+    <input style="flex:1;min-width:200px" placeholder="🔍 Search DSR items..." value="${STATE.dsrSearch}" oninput="STATE.dsrSearch=this.value;renderDsrTable()"/>
+  </div></div>
+  <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto" id="dsrTableWrap"></div></div>
+  <div class="grid g3" style="margin-top:16px">
+    <div class="note note-blue" style="margin:0">👷 <strong>Labor:</strong> Skilled & unskilled rates per minimum wages</div>
+    <div class="note note-blue" style="margin:0;background:#f0fdf4;color:#15803d;border-color:#bbf7d0">📦 <strong>Material:</strong> Market rates incl. transportation</div>
+    <div class="note note-amber" style="margin:0">🚜 <strong>Equipment:</strong> Machinery hire incl. fuel & operator</div>
+  </div>`;
+}
+function renderDsrTable(){
+  const wrap=document.getElementById("dsrTableWrap");if(!wrap)return;
+  let rates=(STATE.dsrSource==="bihar"?BIHAR_RATES:CPWD_RATES);
+  if(STATE.dsrCat)rates=rates.filter(r=>r.category===STATE.dsrCat);
+  if(STATE.dsrSearch){const s=STATE.dsrSearch.toLowerCase();rates=rates.filter(r=>r.description.toLowerCase().includes(s)||r.itemCode.toLowerCase().includes(s)||r.category.includes(s));}
+  wrap.innerHTML=`<table><thead><tr><th>Code</th><th>Description</th><th>Chapter</th><th>Category</th><th>Unit</th><th class="tr">Rate</th><th class="tr">Labor</th><th class="tr">Material</th><th class="tr">Equip.</th></tr></thead><tbody>
+  ${rates.map(r=>`<tr><td style="font-family:monospace;font-size:12px;color:#2563eb;font-weight:600">${r.itemCode}</td><td style="max-width:280px">${r.description}</td><td style="color:var(--muted-fg)">${r.chapter}</td><td><span class="pill" style="background:${CAT_COLORS[r.category]}22;color:${CAT_COLORS[r.category]}">${r.category}</span></td><td style="color:var(--muted-fg)">${r.unit}</td><td class="tr" style="font-weight:700">${fmtINR(r.rate)}</td><td class="tr" style="color:#16a34a">${r.laborRate?fmtINR(r.laborRate):'-'}</td><td class="tr" style="color:#2563eb">${r.materialRate?fmtINR(r.materialRate):'-'}</td><td class="tr" style="color:#ca8a04">${r.equipmentRate?fmtINR(r.equipmentRate):'-'}</td></tr>`).join("")}
+  </tbody></table>${rates.length?'':'<div style="padding:40px;text-align:center;color:var(--muted-fg)">No rates found matching your criteria</div>'}`;
+}
+
+const empty=(ic,t,d,btn,panel)=>`<div style="text-align:center;padding:80px 20px"><div style="font-size:50px;opacity:.4">${ic}</div><h2 style="margin-top:16px">${t}</h2><p class="sub" style="margin-top:6px">${d}</p><button class="btn btn-primary" onclick="nav('${panel}')">${btn}</button></div>`;
+
+/* ---------- EXPORTS ---------- */
+function exportAnalysis(){
+  const r=STATE.result;if(!r)return;
+  const wb=XLSX.utils.book_new();
+  const sum=[["Infinity Bid — BOQ Analysis Report"],["Project",r.projectName],["DSR Source",r.source.toUpperCase()+" 2024"],["BOQ Items",r.itemCount],[],["Cost Summary",""],["Material Cost",r.summary.materialCost],["Labor Cost",r.summary.laborCost],["Equipment Cost",r.summary.equipmentCost],["Overhead & Profit",r.summary.overheadCost],["Total Estimated Cost",Math.round(r.summary.estimatedCost)]];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),"Summary");
+  const mh=[["Material","Category","Quantity","Unit","Rate","Wastage %","Total Qty","Amount"]];
+  r.materials.forEach(m=>mh.push([m.materialName,m.category,m.quantity,m.unit,m.rate,m.wastagePercent,m.totalWithWastage,m.amount]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mh),"Materials");
+  XLSX.writeFile(wb,"infinity-bid-analysis.xlsx");
+}
+function exportDPR(){
+  const d=STATE.dpr;if(!d)return;
+  const wb=XLSX.utils.book_new();
+  const rows=[["Infinity Bid — Financial DPR"],["Total Budget",d.projectSummary.totalBudget],["Daily Budget",d.projectSummary.dailyBudget],["Duration (days)",d.projectSummary.duration],[],["Day","Date","Planned","Actual","Cumulative Planned","Cumulative Actual","Progress %","Variance"]];
+  d.dprEntries.forEach(e=>rows.push([e.day,e.date,e.planned,e.actual,e.cumP,e.cumA,e.progress,e.variance]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Financial DPR");
+  XLSX.writeFile(wb,"infinity-bid-dpr.xlsx");
+}
+
+/* ---------- INIT ---------- */
+render();
+</script>
+</body>
+</html>

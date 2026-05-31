@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Infinity Bid — AI BOQ Analyzer</title>
-<meta name="description" content="AI-powered Bill of Quantity analyzer. Upload BOQ, get material quantities, cost estimates & financial DPR based on CPWD & Bihar DSR." />
+<meta name="description" content="AI-powered Bill of Quantity analyzer. Upload BOQ to get material quantities, cost estimates, profitability and a financial DPR — using IS-code coefficients and your own BOQ rates." />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
@@ -63,9 +63,6 @@
   @media (prefers-color-scheme: dark){.dropzone.has{background:#052e16}}
   .bar{height:10px;background:var(--muted);border-radius:999px;overflow:hidden}
   .bar>div{height:100%;border-radius:999px;transition:width .6s}
-  .src-card{padding:16px;border:2px solid var(--border);border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:.15s}
-  .src-card.sel-cpwd{border-color:var(--primary);background:#eff6ff}.src-card.sel-bihar{border-color:var(--green);background:#f0fdf4}
-  @media (prefers-color-scheme: dark){.src-card.sel-cpwd{background:#1e3a5f}.src-card.sel-bihar{background:#052e16}}
   .hidden{display:none}
   .fade{animation:fade .3s ease}
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -124,147 +121,9 @@
    INFINITY BID — Client-side BOQ Analyzer Engine
    ============================================================ */
 
-/* ---------- DSR RATE DATA ---------- */
-const CPWD_RATES = [
-  {itemCode:"1.1",description:"Earth work in excavation in foundation trenches in ordinary soil (depth up to 1.5m)",unit:"cum",rate:282,chapter:"Earthwork",category:"earthwork",laborRate:232,materialRate:0,equipmentRate:50},
-  {itemCode:"1.3",description:"Filling in plinth with sand under floor",unit:"cum",rate:1175,chapter:"Earthwork",category:"earthwork",laborRate:175,materialRate:950,equipmentRate:50},
-  {itemCode:"4.1",description:"PCC 1:4:8 (40mm graded stone aggregate) in foundation and plinth",unit:"cum",rate:5765,chapter:"Concrete Work",category:"concrete",laborRate:1150,materialRate:4215,equipmentRate:400},
-  {itemCode:"4.2",description:"Cement concrete 1:2:4 (20mm graded stone aggregate)",unit:"cum",rate:7480,chapter:"Concrete Work",category:"concrete",laborRate:1400,materialRate:5580,equipmentRate:500},
-  {itemCode:"4.4",description:"RCC M-20 grade concrete with reinforcement",unit:"cum",rate:8950,chapter:"Concrete Work",category:"concrete",laborRate:1800,materialRate:6500,equipmentRate:650},
-  {itemCode:"4.5",description:"RCC M-25 grade concrete with reinforcement",unit:"cum",rate:9450,chapter:"Concrete Work",category:"concrete",laborRate:1900,materialRate:6850,equipmentRate:700},
-  {itemCode:"4.6",description:"RCC M-30 grade concrete",unit:"cum",rate:10200,chapter:"Concrete Work",category:"concrete",laborRate:2000,materialRate:7400,equipmentRate:800},
-  {itemCode:"5.1",description:"Brick work in cement mortar 1:6 in foundation and plinth",unit:"cum",rate:7250,chapter:"Brick Work",category:"masonry",laborRate:2100,materialRate:4850,equipmentRate:300},
-  {itemCode:"5.2",description:"Brick work in cement mortar 1:4 in superstructure above plinth",unit:"cum",rate:8150,chapter:"Brick Work",category:"masonry",laborRate:2400,materialRate:5450,equipmentRate:300},
-  {itemCode:"6.1",description:"HYSD steel bars Fe-500D for RCC including cutting, bending, binding",unit:"kg",rate:84,chapter:"Steel Work",category:"steel",laborRate:14,materialRate:68,equipmentRate:2},
-  {itemCode:"6.2",description:"Structural steel work in built-up sections",unit:"kg",rate:112,chapter:"Steel Work",category:"steel",laborRate:22,materialRate:85,equipmentRate:5},
-  {itemCode:"8.1",description:"12mm thick cement plaster 1:6 on walls",unit:"sqm",rate:235,chapter:"Plastering",category:"plastering",laborRate:145,materialRate:75,equipmentRate:15},
-  {itemCode:"8.2",description:"15mm thick cement plaster 1:4 on walls",unit:"sqm",rate:295,chapter:"Plastering",category:"plastering",laborRate:165,materialRate:110,equipmentRate:20},
-  {itemCode:"8.3",description:"20mm thick cement plaster 1:4 on ceiling",unit:"sqm",rate:385,chapter:"Plastering",category:"plastering",laborRate:225,materialRate:135,equipmentRate:25},
-  {itemCode:"9.1",description:"Vitrified floor tiles 600x600mm with cement mortar",unit:"sqm",rate:1450,chapter:"Flooring",category:"flooring",laborRate:350,materialRate:1000,equipmentRate:100},
-  {itemCode:"9.2",description:"Ceramic floor tiles 300x300mm",unit:"sqm",rate:1050,chapter:"Flooring",category:"flooring",laborRate:300,materialRate:680,equipmentRate:70},
-  {itemCode:"10.2",description:"Acrylic emulsion paint (two coats) on walls",unit:"sqm",rate:125,chapter:"Painting",category:"painting",laborRate:45,materialRate:72,equipmentRate:8},
-  {itemCode:"10.3",description:"Synthetic enamel paint (two coats) on wood/metal",unit:"sqm",rate:145,chapter:"Painting",category:"painting",laborRate:55,materialRate:80,equipmentRate:10},
-  {itemCode:"11.1",description:"CPVC pipe 20mm diameter with fittings",unit:"rmt",rate:185,chapter:"Plumbing",category:"plumbing",laborRate:65,materialRate:110,equipmentRate:10},
-  {itemCode:"11.2",description:"PVC pipe 110mm diameter for drainage",unit:"rmt",rate:420,chapter:"Plumbing",category:"plumbing",laborRate:120,materialRate:270,equipmentRate:30},
-  {itemCode:"12.1",description:"Wiring for light/fan point with 1.5 sq mm copper conductor",unit:"point",rate:1250,chapter:"Electrical",category:"electrical",laborRate:450,materialRate:720,equipmentRate:80},
-  {itemCode:"12.2",description:"Wiring for power point with 4 sq mm copper conductor",unit:"point",rate:1850,chapter:"Electrical",category:"electrical",laborRate:550,materialRate:1150,equipmentRate:150},
-  {itemCode:"13.1",description:"Waterproofing treatment on roof with bitumen felt",unit:"sqm",rate:485,chapter:"Waterproofing",category:"waterproofing",laborRate:150,materialRate:295,equipmentRate:40},
-  {itemCode:"14.1",description:"Flush door shutter 35mm thick (commercial) with hardware",unit:"sqm",rate:4850,chapter:"Doors & Windows",category:"woodwork",laborRate:850,materialRate:3700,equipmentRate:300},
-  {itemCode:"14.2",description:"Aluminium sliding window with glass",unit:"sqm",rate:6500,chapter:"Doors & Windows",category:"woodwork",laborRate:1200,materialRate:4800,equipmentRate:500},
-  {itemCode:"1.2",description:"Earth work in excavation in hard/dense soil (depth up to 1.5m)",unit:"cum",rate:352,chapter:"Earthwork",category:"earthwork",laborRate:290,materialRate:0,equipmentRate:62},
-  {itemCode:"1.4",description:"Earth filling in plinth with available excavated earth, rammed in 20cm layers",unit:"cum",rate:245,chapter:"Earthwork",category:"earthwork",laborRate:195,materialRate:0,equipmentRate:50},
-  {itemCode:"1.5",description:"Disposal of surplus excavated earth beyond 50m lead",unit:"cum",rate:165,chapter:"Earthwork",category:"earthwork",laborRate:60,materialRate:0,equipmentRate:105},
-  {itemCode:"2.1",description:"Anti-termite treatment (pre-construction) to soil",unit:"sqm",rate:95,chapter:"Earthwork",category:"earthwork",laborRate:35,materialRate:55,equipmentRate:5},
-  {itemCode:"4.7",description:"Providing and laying RCC M-35 grade in structural members",unit:"cum",rate:11200,chapter:"Concrete Work",category:"concrete",laborRate:2150,materialRate:8200,equipmentRate:850},
-  {itemCode:"4.8",description:"Providing and laying RMC (Ready Mix Concrete) M-25 by pump",unit:"cum",rate:8650,chapter:"Concrete Work",category:"concrete",laborRate:900,materialRate:7100,equipmentRate:650},
-  {itemCode:"4.9",description:"Damp proof course 50mm thick CC 1:2:4 with waterproofing compound",unit:"sqm",rate:485,chapter:"Concrete Work",category:"concrete",laborRate:165,materialRate:290,equipmentRate:30},
-  {itemCode:"4.10",description:"PCC 1:5:10 (40mm aggregate) levelling course below foundation",unit:"cum",rate:4980,chapter:"Concrete Work",category:"concrete",laborRate:1050,materialRate:3580,equipmentRate:350},
-  {itemCode:"7.1",description:"Centering and shuttering with plywood for suspended floors, roofs, beams",unit:"sqm",rate:625,chapter:"Formwork",category:"formwork",laborRate:340,materialRate:255,equipmentRate:30},
-  {itemCode:"7.2",description:"Centering and shuttering for columns, pillars, piers",unit:"sqm",rate:545,chapter:"Formwork",category:"formwork",laborRate:300,materialRate:220,equipmentRate:25},
-  {itemCode:"5.4",description:"230mm thick AAC block masonry in cement mortar 1:6",unit:"cum",rate:6450,chapter:"Block Work",category:"masonry",laborRate:1650,materialRate:4550,equipmentRate:250},
-  {itemCode:"5.5",description:"100mm thick AAC block partition wall in CM 1:4",unit:"sqm",rate:825,chapter:"Block Work",category:"masonry",laborRate:280,materialRate:495,equipmentRate:50},
-  {itemCode:"5.6",description:"Random rubble stone masonry in cement mortar 1:6 in foundation",unit:"cum",rate:5850,chapter:"Stone Work",category:"masonry",laborRate:2000,materialRate:3550,equipmentRate:300},
-  {itemCode:"9.3",description:"Kota stone flooring 25mm thick over 20mm cement mortar bed",unit:"sqm",rate:1180,chapter:"Flooring",category:"flooring",laborRate:320,materialRate:790,equipmentRate:70},
-  {itemCode:"9.4",description:"Polished granite stone flooring 18mm thick on cement mortar",unit:"sqm",rate:2850,chapter:"Flooring",category:"flooring",laborRate:520,materialRate:2180,equipmentRate:150},
-  {itemCode:"9.5",description:"Marble stone flooring (Makrana) 20mm thick on cement mortar",unit:"sqm",rate:3250,chapter:"Flooring",category:"flooring",laborRate:560,materialRate:2520,equipmentRate:170},
-  {itemCode:"9.6",description:"Cement concrete flooring 1:2:4 finished with floor hardener 40mm",unit:"sqm",rate:585,chapter:"Flooring",category:"flooring",laborRate:185,materialRate:370,equipmentRate:30},
-  {itemCode:"9.7",description:"Anti-skid ceramic tile flooring 300x300mm in cement mortar",unit:"sqm",rate:985,chapter:"Flooring",category:"flooring",laborRate:300,materialRate:625,equipmentRate:60},
-  {itemCode:"8.4",description:"Neeru/white cement punning finish 2mm over plaster",unit:"sqm",rate:85,chapter:"Plastering",category:"plastering",laborRate:55,materialRate:25,equipmentRate:5},
-  {itemCode:"8.5",description:"Sand faced cement plaster 18mm two coats on external walls",unit:"sqm",rate:345,chapter:"Plastering",category:"plastering",laborRate:195,materialRate:130,equipmentRate:20},
-  {itemCode:"10.1",description:"Distempering with dry/acrylic distemper two coats on walls",unit:"sqm",rate:78,chapter:"Painting",category:"painting",laborRate:38,materialRate:35,equipmentRate:5},
-  {itemCode:"10.4",description:"Exterior weatherproof emulsion paint (Apex) two coats",unit:"sqm",rate:165,chapter:"Painting",category:"painting",laborRate:55,materialRate:100,equipmentRate:10},
-  {itemCode:"10.5",description:"Wall putty (acrylic) two coats over plastered surface",unit:"sqm",rate:95,chapter:"Painting",category:"painting",laborRate:45,materialRate:42,equipmentRate:8},
-  {itemCode:"11.3",description:"CPVC pipe 25mm dia concealed with fittings for water supply",unit:"rmt",rate:245,chapter:"Plumbing",category:"plumbing",laborRate:85,materialRate:145,equipmentRate:15},
-  {itemCode:"11.4",description:"PVC pipe 75mm dia for rainwater/waste",unit:"rmt",rate:285,chapter:"Plumbing",category:"plumbing",laborRate:90,materialRate:175,equipmentRate:20},
-  {itemCode:"15.1",description:"Providing and fixing white vitreous china wash basin with fittings",unit:"nos",rate:3850,chapter:"Sanitary",category:"sanitary",laborRate:650,materialRate:3000,equipmentRate:200},
-  {itemCode:"15.2",description:"Providing and fixing white vitreous china EWC (water closet) with cistern",unit:"nos",rate:7250,chapter:"Sanitary",category:"sanitary",laborRate:950,materialRate:6000,equipmentRate:300},
-  {itemCode:"15.3",description:"Providing and fixing CP brass pillar cock/tap",unit:"nos",rate:985,chapter:"Sanitary",category:"sanitary",laborRate:185,materialRate:760,equipmentRate:40},
-  {itemCode:"15.4",description:"Stainless steel kitchen sink with drain board",unit:"nos",rate:4250,chapter:"Sanitary",category:"sanitary",laborRate:550,materialRate:3500,equipmentRate:200},
-  {itemCode:"16.1",description:"Gypsum board false ceiling on GI framework",unit:"sqm",rate:985,chapter:"False Ceiling",category:"falseceiling",laborRate:320,materialRate:615,equipmentRate:50},
-  {itemCode:"16.2",description:"Grid type mineral fibre false ceiling 600x600mm",unit:"sqm",rate:865,chapter:"False Ceiling",category:"falseceiling",laborRate:265,materialRate:555,equipmentRate:45},
-  {itemCode:"12.3",description:"Main distribution board (MCB) 8-way with MCBs",unit:"nos",rate:6850,chapter:"Electrical",category:"electrical",laborRate:850,materialRate:5700,equipmentRate:300},
-  {itemCode:"12.4",description:"PVC insulated copper armoured cable 4 core 16 sqmm laid",unit:"rmt",rate:485,chapter:"Electrical",category:"electrical",laborRate:120,materialRate:330,equipmentRate:35},
-  {itemCode:"17.1",description:"Structural steel work in trusses, purlins fabricated and erected",unit:"kg",rate:128,chapter:"Steel Work",category:"steel",laborRate:28,materialRate:92,equipmentRate:8},
-  {itemCode:"18.1",description:"Granular sub-base (GSB) for road, compacted",unit:"cum",rate:1850,chapter:"Roads",category:"roadwork",laborRate:280,materialRate:1370,equipmentRate:200},
-  {itemCode:"18.2",description:"Dense bituminous macadam (DBM) 50mm compacted",unit:"sqm",rate:485,chapter:"Roads",category:"roadwork",laborRate:75,materialRate:330,equipmentRate:80},
-  {itemCode:"18.3",description:"Bituminous concrete (BC) wearing course 40mm",unit:"sqm",rate:425,chapter:"Roads",category:"roadwork",laborRate:65,materialRate:295,equipmentRate:65},
-  {itemCode:"13.2",description:"Integral crystalline waterproofing to RCC water tanks",unit:"sqm",rate:425,chapter:"Waterproofing",category:"waterproofing",laborRate:135,materialRate:255,equipmentRate:35},
-  {itemCode:"13.3",description:"APP modified bitumen membrane 3mm waterproofing on terrace",unit:"sqm",rate:565,chapter:"Waterproofing",category:"waterproofing",laborRate:165,materialRate:360,equipmentRate:40},
-  {itemCode:"14.3",description:"Salwood/hardwood panelled door shutter 40mm with frame",unit:"sqm",rate:6850,chapter:"Doors & Windows",category:"woodwork",laborRate:1100,materialRate:5350,equipmentRate:400},
-  {itemCode:"14.4",description:"UPVC casement window with glazing and hardware",unit:"sqm",rate:5450,chapter:"Doors & Windows",category:"woodwork",laborRate:950,materialRate:4100,equipmentRate:400},
-  {itemCode:"14.5",description:"MS grill/railing fabricated and fixed to windows/stairs",unit:"kg",rate:135,chapter:"Doors & Windows",category:"steel",laborRate:35,materialRate:90,equipmentRate:10},
-];
-const BIHAR_RATES = [
-  {itemCode:"B-1.1",description:"Earth work in excavation in ordinary soil (depth up to 1.5m)",unit:"cum",rate:225,chapter:"Earthwork",category:"earthwork",laborRate:185,materialRate:0,equipmentRate:40},
-  {itemCode:"B-1.3",description:"Sand filling in plinth under floor",unit:"cum",rate:980,chapter:"Earthwork",category:"earthwork",laborRate:150,materialRate:790,equipmentRate:40},
-  {itemCode:"B-4.1",description:"PCC 1:4:8 with 40mm stone aggregate in foundation",unit:"cum",rate:4950,chapter:"Concrete Work",category:"concrete",laborRate:980,materialRate:3620,equipmentRate:350},
-  {itemCode:"B-4.2",description:"PCC 1:2:4 with 20mm stone aggregate",unit:"cum",rate:6450,chapter:"Concrete Work",category:"concrete",laborRate:1200,materialRate:4800,equipmentRate:450},
-  {itemCode:"B-4.4",description:"RCC M-20 grade with steel reinforcement",unit:"cum",rate:7850,chapter:"Concrete Work",category:"concrete",laborRate:1550,materialRate:5700,equipmentRate:600},
-  {itemCode:"B-4.5",description:"RCC M-25 grade with steel reinforcement",unit:"cum",rate:8350,chapter:"Concrete Work",category:"concrete",laborRate:1650,materialRate:6050,equipmentRate:650},
-  {itemCode:"B-4.6",description:"RCC M-30 grade concrete",unit:"cum",rate:9100,chapter:"Concrete Work",category:"concrete",laborRate:1750,materialRate:6600,equipmentRate:750},
-  {itemCode:"B-5.1",description:"First class brick work in CM 1:6 in foundation & plinth",unit:"cum",rate:6150,chapter:"Brick Work",category:"masonry",laborRate:1800,materialRate:4100,equipmentRate:250},
-  {itemCode:"B-5.2",description:"First class brick work in CM 1:4 in superstructure",unit:"cum",rate:6950,chapter:"Brick Work",category:"masonry",laborRate:2050,materialRate:4650,equipmentRate:250},
-  {itemCode:"B-6.1",description:"HYSD bars Fe-500D including cutting, bending, placing",unit:"kg",rate:78,chapter:"Steel Work",category:"steel",laborRate:12,materialRate:64,equipmentRate:2},
-  {itemCode:"B-6.2",description:"Structural steel work in built-up sections",unit:"kg",rate:98,chapter:"Steel Work",category:"steel",laborRate:18,materialRate:75,equipmentRate:5},
-  {itemCode:"B-8.1",description:"12mm cement plaster 1:6 on walls",unit:"sqm",rate:198,chapter:"Plastering",category:"plastering",laborRate:120,materialRate:65,equipmentRate:13},
-  {itemCode:"B-8.2",description:"15mm cement plaster 1:4 on walls",unit:"sqm",rate:255,chapter:"Plastering",category:"plastering",laborRate:140,materialRate:98,equipmentRate:17},
-  {itemCode:"B-8.3",description:"20mm cement plaster 1:4 on ceiling",unit:"sqm",rate:335,chapter:"Plastering",category:"plastering",laborRate:195,materialRate:118,equipmentRate:22},
-  {itemCode:"B-9.1",description:"Vitrified floor tiles 600x600mm with cement bedding",unit:"sqm",rate:1250,chapter:"Flooring",category:"flooring",laborRate:300,materialRate:870,equipmentRate:80},
-  {itemCode:"B-9.2",description:"Ceramic floor tiles 300x300mm",unit:"sqm",rate:895,chapter:"Flooring",category:"flooring",laborRate:260,materialRate:575,equipmentRate:60},
-  {itemCode:"B-10.2",description:"Acrylic emulsion paint (two coats) on walls",unit:"sqm",rate:108,chapter:"Painting",category:"painting",laborRate:38,materialRate:62,equipmentRate:8},
-  {itemCode:"B-11.1",description:"CPVC pipe 20mm dia with fittings",unit:"rmt",rate:158,chapter:"Plumbing",category:"plumbing",laborRate:55,materialRate:95,equipmentRate:8},
-  {itemCode:"B-11.2",description:"PVC pipe 110mm dia for drainage",unit:"rmt",rate:365,chapter:"Plumbing",category:"plumbing",laborRate:105,materialRate:235,equipmentRate:25},
-  {itemCode:"B-12.1",description:"Wiring for light point with 1.5 sqmm copper conductor",unit:"point",rate:1050,chapter:"Electrical",category:"electrical",laborRate:380,materialRate:600,equipmentRate:70},
-  {itemCode:"B-12.2",description:"Wiring for power point with 4 sqmm conductor",unit:"point",rate:1580,chapter:"Electrical",category:"electrical",laborRate:470,materialRate:980,equipmentRate:130},
-  {itemCode:"B-13.1",description:"Waterproofing treatment on roof with bitumen felt",unit:"sqm",rate:420,chapter:"Waterproofing",category:"waterproofing",laborRate:130,materialRate:255,equipmentRate:35},
-  {itemCode:"B-14.1",description:"Flush door shutter 35mm thick commercial grade",unit:"sqm",rate:4200,chapter:"Doors & Windows",category:"woodwork",laborRate:720,materialRate:3200,equipmentRate:280},
-  {itemCode:"B-14.2",description:"Aluminium sliding window with 5mm glass",unit:"sqm",rate:5650,chapter:"Doors & Windows",category:"woodwork",laborRate:1050,materialRate:4150,equipmentRate:450},
-  {itemCode:"B-1.2",description:"Earth work in excavation in hard/dense soil (depth up to 1.5m)",unit:"cum",rate:295,chapter:"Earthwork",category:"earthwork",laborRate:245,materialRate:0,equipmentRate:50},
-  {itemCode:"B-1.4",description:"Earth filling in plinth with excavated earth, rammed in layers",unit:"cum",rate:198,chapter:"Earthwork",category:"earthwork",laborRate:158,materialRate:0,equipmentRate:40},
-  {itemCode:"B-1.5",description:"Disposal of surplus earth beyond 50m lead",unit:"cum",rate:135,chapter:"Earthwork",category:"earthwork",laborRate:50,materialRate:0,equipmentRate:85},
-  {itemCode:"B-2.1",description:"Anti-termite treatment (pre-construction) to soil",unit:"sqm",rate:78,chapter:"Earthwork",category:"earthwork",laborRate:30,materialRate:43,equipmentRate:5},
-  {itemCode:"B-4.7",description:"Providing and laying RCC M-35 grade in structural members",unit:"cum",rate:9850,chapter:"Concrete Work",category:"concrete",laborRate:1900,materialRate:7150,equipmentRate:800},
-  {itemCode:"B-4.8",description:"Providing and laying RMC M-25 by pump",unit:"cum",rate:7650,chapter:"Concrete Work",category:"concrete",laborRate:780,materialRate:6270,equipmentRate:600},
-  {itemCode:"B-4.9",description:"Damp proof course 50mm CC 1:2:4 with waterproofing compound",unit:"sqm",rate:415,chapter:"Concrete Work",category:"concrete",laborRate:140,materialRate:250,equipmentRate:25},
-  {itemCode:"B-4.10",description:"PCC 1:5:10 levelling course below foundation",unit:"cum",rate:4280,chapter:"Concrete Work",category:"concrete",laborRate:900,materialRate:3080,equipmentRate:300},
-  {itemCode:"B-7.1",description:"Centering and shuttering with plywood for slabs, beams, roofs",unit:"sqm",rate:545,chapter:"Formwork",category:"formwork",laborRate:300,materialRate:220,equipmentRate:25},
-  {itemCode:"B-7.2",description:"Centering and shuttering for columns and piers",unit:"sqm",rate:475,chapter:"Formwork",category:"formwork",laborRate:265,materialRate:190,equipmentRate:20},
-  {itemCode:"B-5.4",description:"230mm thick AAC block masonry in cement mortar 1:6",unit:"cum",rate:5650,chapter:"Block Work",category:"masonry",laborRate:1450,materialRate:3950,equipmentRate:250},
-  {itemCode:"B-5.5",description:"100mm thick AAC block partition wall in CM 1:4",unit:"sqm",rate:725,chapter:"Block Work",category:"masonry",laborRate:245,materialRate:435,equipmentRate:45},
-  {itemCode:"B-5.6",description:"Random rubble stone masonry in CM 1:6 in foundation",unit:"cum",rate:5050,chapter:"Stone Work",category:"masonry",laborRate:1750,materialRate:3050,equipmentRate:250},
-  {itemCode:"B-9.3",description:"Kota stone flooring 25mm thick over cement mortar bed",unit:"sqm",rate:1020,chapter:"Flooring",category:"flooring",laborRate:280,materialRate:680,equipmentRate:60},
-  {itemCode:"B-9.4",description:"Polished granite stone flooring 18mm thick on cement mortar",unit:"sqm",rate:2480,chapter:"Flooring",category:"flooring",laborRate:450,materialRate:1900,equipmentRate:130},
-  {itemCode:"B-9.5",description:"Marble stone flooring 20mm thick on cement mortar",unit:"sqm",rate:2850,chapter:"Flooring",category:"flooring",laborRate:490,materialRate:2210,equipmentRate:150},
-  {itemCode:"B-9.6",description:"Cement concrete flooring 1:2:4 with floor hardener 40mm",unit:"sqm",rate:510,chapter:"Flooring",category:"flooring",laborRate:160,materialRate:325,equipmentRate:25},
-  {itemCode:"B-8.4",description:"White cement punning/neeru finish 2mm over plaster",unit:"sqm",rate:72,chapter:"Plastering",category:"plastering",laborRate:46,materialRate:21,equipmentRate:5},
-  {itemCode:"B-8.5",description:"Sand faced cement plaster 18mm two coats external walls",unit:"sqm",rate:298,chapter:"Plastering",category:"plastering",laborRate:170,materialRate:110,equipmentRate:18},
-  {itemCode:"B-10.1",description:"Distempering with acrylic distemper two coats on walls",unit:"sqm",rate:64,chapter:"Painting",category:"painting",laborRate:32,materialRate:28,equipmentRate:4},
-  {itemCode:"B-10.4",description:"Exterior weatherproof emulsion (Apex) two coats",unit:"sqm",rate:142,chapter:"Painting",category:"painting",laborRate:48,materialRate:86,equipmentRate:8},
-  {itemCode:"B-10.5",description:"Acrylic wall putty two coats over plaster",unit:"sqm",rate:82,chapter:"Painting",category:"painting",laborRate:38,materialRate:37,equipmentRate:7},
-  {itemCode:"B-11.3",description:"CPVC pipe 25mm concealed with fittings for water supply",unit:"rmt",rate:210,chapter:"Plumbing",category:"plumbing",laborRate:72,materialRate:125,equipmentRate:13},
-  {itemCode:"B-11.4",description:"PVC pipe 75mm dia for rainwater/waste",unit:"rmt",rate:245,chapter:"Plumbing",category:"plumbing",laborRate:78,materialRate:150,equipmentRate:17},
-  {itemCode:"B-15.1",description:"White vitreous china wash basin with CP fittings",unit:"nos",rate:3250,chapter:"Sanitary",category:"sanitary",laborRate:550,materialRate:2520,equipmentRate:180},
-  {itemCode:"B-15.2",description:"White vitreous china EWC (water closet) with cistern",unit:"nos",rate:6250,chapter:"Sanitary",category:"sanitary",laborRate:820,materialRate:5180,equipmentRate:250},
-  {itemCode:"B-15.3",description:"CP brass pillar cock/tap",unit:"nos",rate:825,chapter:"Sanitary",category:"sanitary",laborRate:155,materialRate:640,equipmentRate:30},
-  {itemCode:"B-15.4",description:"Stainless steel kitchen sink with drain board",unit:"nos",rate:3650,chapter:"Sanitary",category:"sanitary",laborRate:470,materialRate:3000,equipmentRate:180},
-  {itemCode:"B-16.1",description:"Gypsum board false ceiling on GI framework",unit:"sqm",rate:865,chapter:"False Ceiling",category:"falseceiling",laborRate:280,materialRate:540,equipmentRate:45},
-  {itemCode:"B-16.2",description:"Grid type mineral fibre false ceiling 600x600mm",unit:"sqm",rate:765,chapter:"False Ceiling",category:"falseceiling",laborRate:235,materialRate:490,equipmentRate:40},
-  {itemCode:"B-12.3",description:"Distribution board (MCB) 8-way with MCBs",unit:"nos",rate:5850,chapter:"Electrical",category:"electrical",laborRate:720,materialRate:4880,equipmentRate:250},
-  {itemCode:"B-12.4",description:"Copper armoured cable 4 core 16 sqmm laid",unit:"rmt",rate:420,chapter:"Electrical",category:"electrical",laborRate:105,materialRate:285,equipmentRate:30},
-  {itemCode:"B-17.1",description:"Structural steel trusses/purlins fabricated and erected",unit:"kg",rate:112,chapter:"Steel Work",category:"steel",laborRate:24,materialRate:81,equipmentRate:7},
-  {itemCode:"B-18.1",description:"Granular sub-base (GSB) for road, compacted",unit:"cum",rate:1580,chapter:"Roads",category:"roadwork",laborRate:240,materialRate:1170,equipmentRate:170},
-  {itemCode:"B-18.2",description:"Dense bituminous macadam (DBM) 50mm compacted",unit:"sqm",rate:415,chapter:"Roads",category:"roadwork",laborRate:65,materialRate:285,equipmentRate:65},
-  {itemCode:"B-18.3",description:"Bituminous concrete (BC) wearing course 40mm",unit:"sqm",rate:365,chapter:"Roads",category:"roadwork",laborRate:55,materialRate:255,equipmentRate:55},
-  {itemCode:"B-13.2",description:"Integral crystalline waterproofing to RCC water tanks",unit:"sqm",rate:365,chapter:"Waterproofing",category:"waterproofing",laborRate:115,materialRate:220,equipmentRate:30},
-  {itemCode:"B-13.3",description:"APP modified bitumen membrane 3mm on terrace",unit:"sqm",rate:485,chapter:"Waterproofing",category:"waterproofing",laborRate:140,materialRate:310,equipmentRate:35},
-  {itemCode:"B-14.3",description:"Hardwood panelled door shutter 40mm with frame",unit:"sqm",rate:5850,chapter:"Doors & Windows",category:"woodwork",laborRate:950,materialRate:4500,equipmentRate:400},
-  {itemCode:"B-14.4",description:"UPVC casement window with glazing and hardware",unit:"sqm",rate:4750,chapter:"Doors & Windows",category:"woodwork",laborRate:820,materialRate:3580,equipmentRate:350},
-  {itemCode:"B-14.5",description:"MS grill/railing fabricated and fixed",unit:"kg",rate:118,chapter:"Doors & Windows",category:"steel",laborRate:30,materialRate:80,equipmentRate:8},
-];
-const MAT_RATES = {
-  cpwd:{cement:380,sand:1850,fineSand:2100,agg20:1650,agg40:1500,bricks:8.5,aacblock:55,stone:1250,steel:68,bindwire:78,water:150,earth:120,tiles600:750,tiles300:420,antiskid:560,kota:680,granite:1850,marble:2150,hardener:42,paint:320,extpaint:185,distemper:95,enamel:285,primer:180,putty:35,bitumen:65,membrane:340,cpvc20:85,cpvc25:120,pvc110:210,pvc75:155,fittings:60,wire:22,cable16:240,conduit:35,switchset:260,mcbboard:5200,door:4850,hardwooddoor:5350,upvcwin:4100,frame:520,hardware:480,alum:5800,msgrill:90,gypsum:420,mineralfibre:480,basin:3000,wc:6000,cptap:760,sink:3500,gsb:1370,dbm:330,bc:295,shutterply:62,formoil:8,nails:75,timber:1450},
-  bihar:{cement:350,sand:1550,fineSand:1800,agg20:1400,agg40:1280,bricks:7.0,aacblock:48,stone:1050,steel:64,bindwire:72,water:120,earth:95,tiles600:620,tiles300:350,antiskid:470,kota:580,granite:1620,marble:1880,hardener:38,paint:280,extpaint:160,distemper:82,enamel:250,primer:155,putty:30,bitumen:58,membrane:300,cpvc20:72,cpvc25:105,pvc110:180,pvc75:135,fittings:50,wire:19,cable16:210,conduit:30,switchset:220,mcbboard:4600,door:4200,hardwooddoor:4500,upvcwin:3580,frame:450,hardware:400,alum:5000,msgrill:80,gypsum:360,mineralfibre:410,basin:2520,wc:5180,cptap:640,sink:3000,gsb:1170,dbm:285,bc:255,shutterply:55,formoil:7,nails:68,timber:1250}
-};
+/* ---------- BASE MATERIAL RATES (market commodity prices, editable) ---------- */
+const MATERIAL_RATES={cement:380,sand:1850,fineSand:2100,agg20:1650,agg40:1500,bricks:8.5,aacblock:55,stone:1250,steel:68,bindwire:78,water:150,earth:120,tiles600:750,tiles300:420,antiskid:560,kota:680,granite:1850,marble:2150,hardener:42,paint:320,extpaint:185,distemper:95,enamel:285,primer:180,putty:35,bitumen:65,membrane:340,cpvc20:85,cpvc25:120,pvc110:210,pvc75:155,fittings:60,wire:22,cable16:240,conduit:35,switchset:260,mcbboard:5200,door:4850,hardwooddoor:5350,upvcwin:4100,frame:520,hardware:480,alum:5800,msgrill:90,gypsum:420,giframe:185,mineralfibre:480,basin:3000,wc:6000,cptap:760,sink:3500,gsb:1370,dbm:330,bc:295,shutterply:62,formoil:8,nails:75,timber:1450};
+function matRates(){const mr=Object.assign({},MATERIAL_RATES);if(typeof STATE!=="undefined"&&STATE.market){for(const k in STATE.market){if(STATE.market[k]>0)mr[k]=STATE.market[k];}}return mr;}
 
 /* ---------- MATERIAL CALCULATION ENGINE (grade / thickness / mix aware) ---------- */
 const round2=n=>Math.round(n*100)/100;
@@ -440,68 +299,57 @@ function findHeader(rows){const kw=["sl","item","description","quantity","unit",
 function mapCols(h){const f=(ks)=>{for(const k of ks){const i=h.findIndex(x=>x.includes(k));if(i!==-1)return i;}return 0;};return{slNo:f(["sl","s.no","sr","sno","#"]),itemCode:f(["item code","code","item no","ref"]),description:f(["description","particular","item","work","detail","name of"]),unit:f(["unit","uom"]),quantity:f(["quantity","qty","quan"]),rate:f(["rate","unit rate","price"]),amount:f(["amount","total","value","cost"])};}
 function normUnit(u){const l=u.toLowerCase().replace(/\./g,"").replace(/\s/g,"");const m={cubicmeter:"cum",cum:"cum",m3:"cum",cumt:"cum",squaremeter:"sqm",sqm:"sqm",m2:"sqm",sqmt:"sqm",runningmeter:"rmt",rm:"rmt",rmt:"rmt",meter:"rmt",mtr:"rmt",kilogram:"kg",kg:"kg",kgs:"kg",numbers:"nos",nos:"nos",no:"nos",each:"nos",ea:"nos",lumpsum:"ls",ls:"ls",litre:"ltr",ltr:"ltr",lt:"ltr",kl:"kl",mt:"mt",tonne:"mt",bag:"bag",bags:"bag",set:"set",point:"point",pt:"point",cft:"cft",sft:"sft",quintal:"quintal"};return m[l]||u||"nos";}
 
-/* ---------- AI ANALYZER ---------- */
-function analyze(items,source){
-  const {rates,mr,meta}=resolveRates(source);
-  let matched=0;
-  const all=[];           // material takeoff rows
-  let estCost=0,laborCost=0,matCostDsr=0,equipCost=0;
-  // Map each item to its best DSR match; cost via DSR rate x qty (item-level = accurate)
-  const mapped=items.map(it=>{
-    const dsr=bestMatch(it,rates);
-    let cat=it.category;
-    if((!cat||cat==="misc")&&dsr)cat=dsr.category;
-    if(dsr)matched++;
-    const item={...it,category:cat,dsr,source};
-    // ----- accurate item cost -----
-    let dsrRate=null,itemCost;
-    if(dsr&&(dsr.unit===it.unit)){dsrRate=dsr.rate;itemCost=dsrRate*it.quantity;}
-    else if(it.amount){itemCost=it.amount;}             // trust BOQ amount when units don't line up
-    else if(dsr){dsrRate=dsr.rate;itemCost=dsrRate*it.quantity;}
-    else{itemCost=(it.rate||0)*it.quantity;}
-    item.dsrRate=dsrRate;item.dsrCost=Math.round(itemCost);
-    estCost+=itemCost;
-    // ----- cost split from DSR sub-components (reconciles to itemCost) -----
-    if(dsr&&dsr.laborRate!=null){const tot=(dsr.laborRate||0)+(dsr.materialRate||0)+(dsr.equipmentRate||0)||dsr.rate||1;
-      laborCost+=itemCost*((dsr.laborRate||0)/tot);
-      matCostDsr+=itemCost*((dsr.materialRate||0)/tot);
-      equipCost+=itemCost*((dsr.equipmentRate||0)/tot);
-    }else{laborCost+=itemCost*0.30;matCostDsr+=itemCost*0.62;equipCost+=itemCost*0.08;}
-    // ----- material takeoff -----
-    for(const c of getMaterials(item)){const base=c.qty,w=c.w||0,tot=base*(1+w/100),rate=mr[c.rk]||0;
-      all.push({materialName:c.m,quantity:round2(base),unit:c.u,rate,wastagePercent:w,totalWithWastage:round2(tot),amount:round2(tot*rate),category:item.category,source});}
+/* ---------- AI ANALYZER (BOQ price authoritative + IS-code material takeoff) ---------- */
+function analyze(items){
+  const mr=matRates();
+  const all=[];                 // material takeoff rows
+  let revenueTotal=0,withMaterials=0;
+  const perItem=items.map(it=>{
+    const item={...it};
+    if(!item.category)item.category=detectCategory(item.description,item.unit);
+    // ----- material takeoff (IS-code coefficients x market rates) -----
+    let itemMat=0;const comps=getMaterials(item);
+    if(comps.length)withMaterials++;
+    for(const c of comps){const base=c.qty,w=c.w||0,tot=base*(1+w/100),rate=mr[c.rk]||0,amt=round2(tot*rate);
+      all.push({materialName:c.m,quantity:round2(base),unit:c.u,rate,wastagePercent:w,totalWithWastage:round2(tot),amount:amt,category:item.category,source:"market"});
+      itemMat+=amt;}
+    item.materialCost=Math.round(itemMat);
+    // ----- item value taken from the BOQ (authoritative) -----
+    const val=(it.amount&&it.amount>0)?it.amount:((it.rate&&it.rate>0)?it.rate*it.quantity:null);
+    item.boqValue=val!=null?Math.round(val):null;
+    item.unitRate=it.rate||(val&&it.quantity?val/it.quantity:null);
+    revenueTotal+=val||0;
     return item;
   });
   const mats=consolidate(all);
   const catBd=categoryBreakdown(mats);
-  const takeoffValue=mats.reduce((s,m)=>s+(m.amount||0),0);
-  const boqStated=items.reduce((s,i)=>s+(i.amount||0),0);
+  const takeoffValue=Math.round(mats.reduce((s,m)=>s+(m.amount||0),0));
   const pricedItems=items.filter(i=>i.amount&&i.amount>0).length;
   const hasBoqPrices=pricedItems>=Math.max(1,Math.round(items.length*0.5));
-  const projectValue=hasBoqPrices?boqStated:Math.round(estCost);
-  const coverage=items.length?matched/items.length:0;
-  const confidence=Math.round((0.62+0.36*coverage)*100)/100;
-  const anomalies=detectAnomalies(mapped);
+  const materialCost=takeoffValue;
+  // Rule-based labour & equipment as a fraction of material cost (typical civil-works ratios)
+  const laborCost=Math.round(materialCost*0.22);
+  const equipCost=Math.round(materialCost*0.05);
+  const basicCost=materialCost+laborCost+equipCost;   // direct execution cost
+  let overheadProfit,estCost,projectValue;
+  if(hasBoqPrices){
+    // Price is the BOQ's own total (100% as submitted). The margin over direct
+    // cost is the embedded overhead + profit.
+    projectValue=Math.round(revenueTotal);estCost=projectValue;
+    overheadProfit=Math.max(0,projectValue-basicCost);
+  }else{
+    // Unpriced BOQ: estimate = direct cost + 15% overhead & profit.
+    overheadProfit=Math.round(basicCost*0.15);
+    estCost=basicCost+overheadProfit;projectValue=estCost;
+  }
+  const anomalies=detectAnomalies(perItem);
   const validation=validateBoq(items);
-  // DSR rates embed ~15% contractor overhead & profit (CPWD methodology):
-  // basic execution cost = estimate / 1.15 — used as direct cost for profit analysis.
-  const basicCost=Math.round(estCost/1.15);
-  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,perItem:mapped,anomalies,validation,stateMeta:meta,
+  const coverage=items.length?withMaterials/items.length:0;
+  const confidence=Math.round((0.70+0.28*coverage)*100)/100;
+  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,perItem,anomalies,validation,
     summary:{totalItems:items.length,totalMaterials:mats.length,estimatedCost:Math.round(estCost),projectValue,hasBoqPrices,pricedItems,
-      laborCost:Math.round(laborCost),materialCost:Math.round(matCostDsr),equipmentCost:Math.round(equipCost),basicCost,
-      overheadCost:Math.max(0,Math.round(estCost-(laborCost+matCostDsr+equipCost))),takeoffValue:Math.round(takeoffValue),
-      boqStatedCost:Math.round(boqStated),anomalyCount:anomalies.length,validationCount:validation.length,confidence},source};
-}
-function bestMatch(it,rates){
-  // 1) exact item-code match (highest confidence)
-  if(it.itemCode){const code=String(it.itemCode).trim().toLowerCase();const ic=rates.find(r=>r.itemCode.toLowerCase()===code||r.itemCode.toLowerCase()==="b-"+code);if(ic)return ic;}
-  // 2) best description similarity within same category when known
-  let best=null,bs=0;const d=it.description.toLowerCase();
-  for(const r of rates){if(it.category&&it.category!=="misc"&&r.category!==it.category)continue;const s=similarity(d,r.description.toLowerCase());if(s>bs&&s>0.28){bs=s;best=r;}}
-  // 3) fallback: best similarity across all, then category default
-  if(!best){for(const r of rates){const s=similarity(d,r.description.toLowerCase());if(s>bs&&s>0.3){bs=s;best=r;}}}
-  if(!best&&it.category)best=rates.find(r=>r.category===it.category)||null;
-  return best;
+      laborCost,materialCost,equipmentCost:equipCost,basicCost,overheadCost:overheadProfit,takeoffValue,
+      boqStatedCost:Math.round(revenueTotal),anomalyCount:anomalies.length,validationCount:validation.length,confidence}};
 }
 function consolidate(arr){const m=new Map();for(const x of arr){const k=x.materialName+"|"+x.unit;if(m.has(k)){const e=m.get(k);e.quantity+=x.quantity;e.totalWithWastage+=x.totalWithWastage;e.amount+=x.amount;}else m.set(k,{...x});}return [...m.values()].map(x=>({...x,quantity:Math.round(x.quantity*100)/100,totalWithWastage:Math.round(x.totalWithWastage*100)/100,amount:Math.round(x.amount*100)/100})).sort((a,b)=>b.amount-a.amount);}
 function categoryBreakdown(mats){const m=new Map();for(const x of mats){if(!m.has(x.category))m.set(x.category,[]);m.get(x.category).push(x);}const total=mats.reduce((s,x)=>s+x.amount,0);return [...m.entries()].map(([category,a])=>{const c=a.reduce((s,x)=>s+x.amount,0);return{category,materialCount:a.length,totalCost:Math.round(c),percentage:total?Math.round(c/total*100):0};}).sort((a,b)=>b.totalCost-a.totalCost);}
@@ -513,37 +361,7 @@ function genDPR(analysis,duration=180){
   const labor=Math.round(s.laborCost*scale),material=Math.round(s.materialCost*scale),equipment=Math.round(s.equipmentCost*scale),overhead=Math.round(t-labor-material-equipment);
   const daily=t/duration;const entries=[];
   for(let d=1;d<=Math.min(7,duration);d++){const prog=d/duration*100;const dc=daily*(0.8+Math.random()*0.4);entries.push({day:d,date:new Date(Date.now()+d*864e5).toISOString().split("T")[0],planned:Math.round(daily),actual:Math.round(dc),cumP:Math.round(daily*d),cumA:Math.round(dc*d),progress:Math.round(prog*10)/10,variance:Math.round((daily-dc))});}
-  return {projectSummary:{totalBudget:Math.round(t),dailyBudget:Math.round(daily),duration,laborBudget:labor,materialBudget:material,equipmentBudget:equipment,overheadBudget:overhead,priceSource:s.hasBoqPrices?"BOQ":"DSR"},dprEntries:entries,costBreakdown:{labor:Math.round(labor/t*100),material:Math.round(material/t*100),equipment:Math.round(equipment/t*100),overhead:Math.round(overhead/t*100)}};
-}
-
-/* ============================================================
-   STATE SOR / DSR DATABASES (multi-state)
-   Native datasets: CPWD & Bihar. Other states derived from CPWD
-   base using published regional cost-index multipliers (approx).
-   ============================================================ */
-const STATE_SOR={
-  cpwd:{name:"CPWD (Central) 2024",index:1.00,native:true,region:"All India"},
-  bihar:{name:"Bihar PWD SOR 2024",index:0.88,native:true,region:"Bihar"},
-  delhi:{name:"Delhi PWD 2024",index:1.02,base:"cpwd",region:"Delhi NCR"},
-  up:{name:"Uttar Pradesh PWD 2024",index:0.95,base:"cpwd",region:"Uttar Pradesh"},
-  rajasthan:{name:"Rajasthan PWD BSR 2024",index:0.97,base:"cpwd",region:"Rajasthan"},
-  mp:{name:"Madhya Pradesh PWD SOR 2024",index:0.94,base:"cpwd",region:"Madhya Pradesh"},
-  maharashtra:{name:"Maharashtra PWD DSR 2024",index:1.08,base:"cpwd",region:"Maharashtra"},
-  gujarat:{name:"Gujarat R&B SOR 2024",index:1.02,base:"cpwd",region:"Gujarat"},
-  karnataka:{name:"Karnataka PWD SR 2024",index:1.05,base:"cpwd",region:"Karnataka"},
-  tamilnadu:{name:"Tamil Nadu PWD SOR 2024",index:1.04,base:"cpwd",region:"Tamil Nadu"},
-  westbengal:{name:"West Bengal PWD SOR 2024",index:0.98,base:"cpwd",region:"West Bengal"},
-  punjab:{name:"Punjab PWD CSR 2024",index:0.99,base:"cpwd",region:"Punjab"},
-  telangana:{name:"Telangana SSR 2024",index:1.03,base:"cpwd",region:"Telangana"}
-};
-// Returns {rates, mr, meta, index} for any state key, applying market overrides if enabled
-function resolveRates(stateKey){
-  const meta=STATE_SOR[stateKey]||STATE_SOR.cpwd;
-  let rates,mr;
-  if(meta.native){rates=stateKey==="bihar"?BIHAR_RATES:CPWD_RATES;mr={...(MAT_RATES[stateKey]||MAT_RATES.cpwd)};}
-  else{const idx=meta.index;rates=CPWD_RATES.map(r=>({...r,source:stateKey,rate:Math.round(r.rate*idx),laborRate:r.laborRate?Math.round(r.laborRate*idx):r.laborRate,materialRate:r.materialRate?Math.round(r.materialRate*idx):r.materialRate,equipmentRate:r.equipmentRate?Math.round(r.equipmentRate*idx):r.equipmentRate}));mr={};const b=MAT_RATES.cpwd;for(const k in b)mr[k]=Math.round(b[k]*idx*100)/100;}
-  if(STATE.useMarket&&STATE.market){for(const k in STATE.market){if(STATE.market[k]>0)mr[k]=STATE.market[k];}}
-  return {rates,mr,meta,index:meta.index};
+  return {projectSummary:{totalBudget:Math.round(t),dailyBudget:Math.round(daily),duration,laborBudget:labor,materialBudget:material,equipmentBudget:equipment,overheadBudget:overhead,priceSource:s.hasBoqPrices?"BOQ":"Estimate"},dprEntries:entries,costBreakdown:{labor:Math.round(labor/t*100),material:Math.round(material/t*100),equipment:Math.round(equipment/t*100),overhead:Math.round(overhead/t*100)}};
 }
 
 /* ---------- CURRENT MARKET RATES (editable, basic materials) ---------- */
@@ -607,22 +425,31 @@ function validateBoq(items){
   return flags;
 }
 
-/* ---------- AI ANOMALY DETECTION (price/quantity outliers vs DSR) ---------- */
+/* ---------- AI ANOMALY DETECTION (statistical: peer-median + material-floor) ---------- */
 function detectAnomalies(perItem){
+  // Build peer rate distribution per category+unit
+  const groups={};
+  perItem.forEach(it=>{if(it.unitRate>0&&it.unit){const k=it.category+"|"+it.unit;(groups[k]=groups[k]||[]).push(it.unitRate);}});
+  const median={};
+  for(const k in groups){const a=groups[k].slice().sort((x,y)=>x-y);median[k]=a[Math.floor(a.length/2)];}
   const out=[];
   for(const it of perItem){
     const issues=[];
-    if(it.rate&&it.dsrRate){const dev=(it.rate-it.dsrRate)/it.dsrRate;
-      if(dev>0.25)issues.push({sev:dev>0.5?"high":"med",type:"Overpriced",msg:`Quoted ₹${Math.round(it.rate)} is +${(dev*100).toFixed(0)}% vs ${it.source.toUpperCase()} DSR ₹${Math.round(it.dsrRate)}`});
-      else if(dev<-0.25)issues.push({sev:dev<-0.5?"high":"med",type:"Underpriced",msg:`Quoted ₹${Math.round(it.rate)} is ${(dev*100).toFixed(0)}% vs DSR ₹${Math.round(it.dsrRate)} (risk of loss)`});
-    }
-    if(!it.dsr)issues.push({sev:"low",type:"Unmatched",msg:"No DSR reference found — verify rate manually"});
-    if(it.unit&&it.dsr&&it.dsr.unit!==it.unit)issues.push({sev:"med",type:"Unit mismatch",msg:`BOQ unit '${it.unit}' vs DSR '${it.dsr.unit}'`});
+    // 1) arithmetic integrity
+    if(it.rate&&it.amount){const calc=it.rate*it.quantity;if(Math.abs(calc-it.amount)/Math.max(1,it.amount)>0.02)issues.push({sev:"high",type:"Arithmetic error",msg:`Amount ₹${Math.round(it.amount)} ≠ Rate×Qty ₹${Math.round(calc)}`});}
+    // 2) quoted rate below material cost (loss risk)
+    if(it.unitRate>0&&it.quantity>0&&it.materialCost>0){const matPU=it.materialCost/it.quantity;if(it.unitRate<matPU)issues.push({sev:"high",type:"Below material cost",msg:`Rate ₹${Math.round(it.unitRate)}/unit is under material cost ₹${Math.round(matPU)}/unit — loss risk`});}
+    // 3) peer rate outlier (statistical, within same trade & unit)
+    const k=it.category+"|"+it.unit,m=median[k];
+    if(m>0&&it.unitRate>0&&groups[k].length>=3){const dev=(it.unitRate-m)/m;
+      if(dev>0.6)issues.push({sev:dev>1?"high":"med",type:"High rate outlier",msg:`Rate +${(dev*100).toFixed(0)}% vs peer median ₹${Math.round(m)}/${it.unit}`});
+      else if(dev<-0.4)issues.push({sev:"med",type:"Low rate outlier",msg:`Rate ${(dev*100).toFixed(0)}% vs peer median ₹${Math.round(m)}/${it.unit}`});}
+    // 4) data quality
+    if(!it.quantity||it.quantity<=0)issues.push({sev:"med",type:"Data",msg:"Quantity is zero/blank"});
     if(issues.length)out.push({row:it.slNo,code:it.itemCode,desc:it.description,issues});
   }
-  // sort by severity
   const rank={high:0,med:1,low:2};
-  out.forEach(o=>o.maxSev=o.issues.reduce((m,x)=>rank[x.sev]<rank[m]?x.sev:m,"low"));
+  out.forEach(o=>o.maxSev=o.issues.reduce((mm,x)=>rank[x.sev]<rank[mm]?x.sev:mm,"low"));
   return out.sort((a,b)=>rank[a.maxSev]-rank[b.maxSev]);
 }
 
@@ -631,10 +458,10 @@ function computeProfitability(analysis,opts){
   opts=opts||{};
   const s=analysis.summary;
   const revenue=opts.revenue||s.projectValue||s.estimatedCost;
-  // Direct execution cost = DSR basic cost (rate stripped of embedded ~15% OH&P)
-  const directCost=opts.directCost||s.basicCost||Math.round((s.laborCost+s.materialCost+s.equipmentCost)/1.15);
-  const sitePct=opts.sitePct!=null?opts.sitePct:8;   // site overhead % of direct cost
-  const adminPct=opts.adminPct!=null?opts.adminPct:4; // admin/general overhead % of revenue
+  // Direct execution cost = material takeoff + rule-based labour & equipment
+  const directCost=opts.directCost||s.basicCost||(s.laborCost+s.materialCost+s.equipmentCost);
+  const sitePct=opts.sitePct!=null?opts.sitePct:5;   // site overhead % of direct cost
+  const adminPct=opts.adminPct!=null?opts.adminPct:3; // admin/general overhead % of revenue
   const siteOH=directCost*sitePct/100;
   const adminOH=revenue*adminPct/100;
   const grossProfit=revenue-directCost;
@@ -678,12 +505,11 @@ const SAMPLE_BOQ=[
   [22,"14.2","Aluminium sliding window with 5mm glass","sqm",68,6500,442000],
 ];
 function downloadSample(){const ws=XLSX.utils.aoa_to_sheet(SAMPLE_BOQ);ws["!cols"]=[{wch:6},{wch:10},{wch:60},{wch:8},{wch:10},{wch:10},{wch:12}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"BOQ");XLSX.writeFile(wb,"sample-boq-residential.xlsx");}
-function loadSampleAndAnalyze(){const ws=XLSX.utils.aoa_to_sheet(SAMPLE_BOQ);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"BOQ");const parsed=parseWorkbook(wb);runAnalysis(parsed,"Sample Residential Project (G+2)",STATE.source);}
+function loadSampleAndAnalyze(){const ws=XLSX.utils.aoa_to_sheet(SAMPLE_BOQ);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"BOQ");const parsed=parseWorkbook(wb);runAnalysis(parsed,"Sample Residential Project (G+2)");}
 
 /* ---------- STATE ---------- */
-const STATE={panel:"dashboard",source:"cpwd",file:null,projectName:"",result:null,dpr:null,profit:null,
-  profitOpts:{sitePct:8,adminPct:4,tenderValue:null,duration:180},market:{},useMarket:false,
-  dsrSource:"cpwd",dsrCat:"",dsrSearch:""};
+const STATE={panel:"dashboard",file:null,projectName:"",result:null,dpr:null,profit:null,
+  profitOpts:{sitePct:5,adminPct:3,tenderValue:null,duration:180},market:{},useMarket:false};
 
 /* ============================================================
    UI RENDERING
@@ -702,15 +528,15 @@ function vDashboard(){
   </div>
   <div class="grid g4" style="margin-bottom:20px">
     ${stat("🏢","Projects Analyzed",STATE.result?"1":"0","Live")}
-    ${stat("📦","Materials Tracked","45+","CPWD+Bihar")}
-    ${stat("💰","DSR Rate Items",(CPWD_RATES.length+BIHAR_RATES.length),"2024 Rates")}
-    ${stat("📊","Engine Coverage","15 trades","v2.0")}
+    ${stat("📦","Materials Tracked","45+","IS-code")}
+    ${stat("💰","Coefficient Items",COEFF_LIBRARY.length,"IS-code")}
+    ${stat("📊","Engine Coverage","15 trades","v3.0")}
   </div>
   <div class="card"><h3>How It Works</h3><div class="grid g4">
     ${step(1,"Upload BOQ","Upload your Excel/CSV Bill of Quantity file")}
-    ${step(2,"AI Parsing","AI extracts items, quantities & maps to DSR")}
-    ${step(3,"Material Analysis","Get exact material quantities with wastage")}
-    ${step(4,"Financial DPR","Cost reports based on CPWD/Bihar DSR")}
+    ${step(2,"AI Parsing","Extracts items, quantities & classifies trades")}
+    ${step(3,"Material Analysis","Exact material quantities via IS-code coefficients")}
+    ${step(4,"Financial DPR","Cost & profit reports from your BOQ rates")}
   </div></div>
   <div class="grid g2" style="margin-top:20px">
     <div class="card" style="background:linear-gradient(135deg,#eff6ff,#eef2ff)"><h3 style="color:#1e3a8a">💹 Profitability Analysis</h3><p style="font-size:13px;color:#1d4ed8">Gross Profit, Net Profit, Break-even point & margin of safety — computed from your BOQ value vs execution cost.</p><button class="btn btn-ghost" style="margin-top:12px" onclick="nav('profit')">Open Profitability →</button></div>
@@ -724,11 +550,8 @@ function vUpload(){
   return `<h2>Upload Bill of Quantity</h2><p class="sub">Upload your BOQ file (Excel/CSV) and our AI will analyze materials, quantities & costs</p>
   <div style="max-width:760px">
     <div style="margin-bottom:18px"><label>Project Name</label><input id="projName" placeholder="e.g., Residential Building - Phase 1" value="${STATE.projectName}" oninput="STATE.projectName=this.value"/></div>
-    <div style="margin-bottom:18px"><label>Schedule of Rates (for cost benchmarking, ${Object.keys(STATE_SOR).length} states)</label>
-      <select onchange="STATE.source=this.value;render()">
-        ${Object.entries(STATE_SOR).map(([k,m])=>`<option value="${k}" ${STATE.source===k?'selected':''}>${m.name}${m.native?' ✓ native':' · index '+m.index}</option>`).join("")}
-      </select>
-      <div style="font-size:12px;color:var(--muted-fg);margin-top:6px">Selected: <b>${STATE_SOR[STATE.source].name}</b>. For a priced BOQ, your own rates are used as the authoritative value — the SOR is only a benchmark.</div>
+    <div style="margin-bottom:18px"><label>Material price basis</label>
+      <div style="font-size:13px;color:var(--muted-fg)">Quantities are derived from IS-code coefficients; for a priced BOQ your own rates are used as the authoritative value. Material costs use the editable <b>Market Rates</b> table.</div>
     </div>
     <div class="dropzone ${STATE.file?'has':''}" id="dropzone">
       ${STATE.file?`<div style="font-size:38px">✅</div><div style="font-weight:600;color:#15803d;margin-top:8px">${STATE.file.name}</div><div style="font-size:13px;color:var(--muted-fg);margin-top:4px">${(STATE.file.size/1024).toFixed(1)} KB — Ready to analyze</div><button class="btn btn-ghost" style="margin-top:10px;font-size:12px" onclick="event.stopPropagation();STATE.file=null;render()">✕ Remove file</button>`
@@ -813,8 +636,8 @@ function doAnalyze(){
   };
   reader.readAsArrayBuffer(STATE.file);
 }
-function runAnalysis(parsed,name,source){
-  const res=analyze(parsed.items,source);
+function runAnalysis(parsed,name){
+  const res=analyze(parsed.items);
   res.projectName=name;res.fileName=STATE.file?STATE.file.name:"sample-boq.xlsx";res.itemCount=parsed.items.length;res.metadata=parsed.metadata;res.boqItems=parsed.items;
   STATE.result=res;STATE.dpr=genDPR(res,STATE.profitOpts.duration);
   STATE.profitOpts.tenderValue=res.summary.projectValue;
@@ -825,9 +648,9 @@ function runAnalysis(parsed,name,source){
 function vAnalysis(){
   if(!STATE.result)return empty("📈","No Analysis Data","Upload a BOQ file first to see material analysis results","Upload BOQ","upload");
   const r=STATE.result,s=r.summary;
-  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>BOQ Analysis Results</h2><p class="sub" style="margin:4px 0 0">${r.projectName} · ${r.fileName} · ${r.itemCount} items · ${r.source.toUpperCase()} DSR</p></div><button class="btn btn-primary" onclick="exportAnalysis()">⬇️ Export Report</button></div>
+  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>BOQ Analysis Results</h2><p class="sub" style="margin:4px 0 0">${r.projectName} · ${r.fileName} · ${r.itemCount} items</p></div><button class="btn btn-primary" onclick="exportAnalysis()">⬇️ Export Report</button></div>
   <div class="grid g4" style="margin:18px 0">
-    ${statBox("💰",s.hasBoqPrices?"Project Value (BOQ)":"Estimated Cost (DSR)",fmtINR(s.hasBoqPrices?s.projectValue:s.estimatedCost),"#eff6ff","#1d4ed8")}
+    ${statBox("💰",s.hasBoqPrices?"Project Value (BOQ)":"Estimated Cost",fmtINR(s.hasBoqPrices?s.projectValue:s.estimatedCost),"#eff6ff","#1d4ed8")}
     ${statBox("📦","Total Materials",s.totalMaterials+" items","#f0fdf4","#15803d")}
     ${statBox("📊","AI Confidence",(s.confidence*100).toFixed(0)+"%","#faf5ff","#7c3aed")}
     ${statBox("⚠️","Anomalies",s.anomalyCount+" flagged","#fff7ed","#c2410c")}
@@ -843,8 +666,7 @@ function vAnalysis(){
       ${costBar("Labor Cost",s.laborCost,s.estimatedCost,"#22c55e")}
       ${costBar("Equipment Cost",s.equipmentCost,s.estimatedCost,"#eab308")}
       ${costBar("Overhead & Profit",s.overheadCost,s.estimatedCost,"#a855f7")}
-      <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><span>DSR Estimated Total</span><span>${fmtINR(s.estimatedCost)}</span></div>
-      ${s.boqStatedCost?`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted-fg);margin-top:8px"><span>BOQ Stated Value</span><span>${fmtINR(s.boqStatedCost)}</span></div><div style="display:flex;justify-content:space-between;font-size:13px;margin-top:4px"><span>Variance vs BOQ</span><span style="color:${s.estimatedCost<=s.boqStatedCost?'#16a34a':'#dc2626'}">${((s.estimatedCost-s.boqStatedCost)/s.boqStatedCost*100).toFixed(1)}% ${s.estimatedCost<=s.boqStatedCost?'under':'over'}</span></div>`:""}
+      <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><span>${s.hasBoqPrices?'Project Value (BOQ)':'Estimated Total'}</span><span>${fmtINR(s.estimatedCost)}</span></div>
     </div>
     <div class="card"><h3>📊 Category-wise Breakdown</h3><div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
     ${r.categoryBreakdown.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:9px;background:var(--muted)"><div style="display:flex;align-items:center;gap:10px"><span class="dot" style="background:${CAT_COLORS[c.category]||'#94a3b8'}"></span><div><div style="font-size:13px;font-weight:600;text-transform:capitalize">${c.category}</div><div style="font-size:11px;color:var(--muted-fg)">${c.materialCount} materials</div></div></div><div style="text-align:right"><div style="font-size:13px;font-weight:600">${fmtINR(c.totalCost)}</div><div style="font-size:11px;color:var(--muted-fg)">${c.percentage}%</div></div></div>`).join("")}
@@ -854,7 +676,7 @@ function vAnalysis(){
     <thead><tr><th>#</th><th>Material</th><th>Category</th><th class="tr">Quantity</th><th>Unit</th><th class="tr">Rate</th><th class="tr">Wastage</th><th class="tr">Total Qty</th><th class="tr">Amount</th></tr></thead>
     <tbody>${r.materials.map((m,i)=>`<tr><td style="color:var(--muted-fg)">${i+1}</td><td style="font-weight:600">${m.materialName}</td><td><span class="pill" style="background:${CAT_COLORS[m.category]}22;color:${CAT_COLORS[m.category]}">${m.category}</span></td><td class="tr">${fmtNum(m.quantity)}</td><td style="color:var(--muted-fg)">${m.unit}</td><td class="tr">${fmtINR(m.rate)}</td><td class="tr" style="color:var(--orange)">${m.wastagePercent}%</td><td class="tr" style="font-weight:600">${fmtNum(m.totalWithWastage)}</td><td class="tr" style="font-weight:700">${fmtINR(m.amount)}</td></tr>`).join("")}</tbody>
   </table></div></div>
-  <div class="note note-blue">ℹ️ <strong>Accuracy model:</strong> ${s.hasBoqPrices?`Project price is taken <strong>directly from your uploaded BOQ</strong> (${s.pricedItems}/${s.totalItems} items priced) — exact to the document. ${r.source==="bihar"?"Bihar":"CPWD"} DSR 2024 is shown as an independent benchmark.`:`No rates found in the BOQ, so price is <strong>estimated from ${r.source==="bihar"?"Bihar":"CPWD"} DSR 2024</strong>.`} Material quantities use IS-code coefficients with grade/thickness/mix parsing and standard wastage. Match confidence: ${(s.confidence*100).toFixed(0)}%.</div>`;
+  <div class="note note-blue">ℹ️ <strong>Accuracy model:</strong> ${s.hasBoqPrices?`Project price is taken <strong>directly from your uploaded BOQ</strong> (${s.pricedItems}/${s.totalItems} items priced) — exact to the document.`:`No rates found in the BOQ, so price is <strong>estimated from IS-code material takeoff + market rates + rule-based labour</strong>.`} Material quantities use IS-code coefficients with grade/thickness/mix parsing and standard wastage. Match confidence: ${(s.confidence*100).toFixed(0)}%.</div>`;
 }
 const statBox=(ic,lbl,val,bg,fg)=>`<div class="stat" style="background:${bg};color:${fg};border-color:${fg}33"><div style="font-size:20px">${ic}</div><div style="font-size:12px;opacity:.85;margin-top:6px">${lbl}</div><div style="font-size:19px;font-weight:800;margin-top:2px">${val}</div></div>`;
 function costBar(lbl,amt,total,col){const p=total?(amt/total*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>${lbl}</span><span style="font-weight:600">${fmtINR(amt)} (${p.toFixed(0)}%)</span></div><div class="bar"><div style="width:${p}%;background:${col}"></div></div></div>`;}
@@ -863,7 +685,7 @@ function vDPR(){
   if(!STATE.dpr)return empty("📋","No Financial DPR Data","Upload a BOQ file first to generate Financial DPR","Upload BOQ","upload");
   const d=STATE.dpr,ps=d.projectSummary,cb=d.costBreakdown;
   const pie=conicPie(cb);
-  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>Financial Daily Progress Report</h2><p class="sub" style="margin:4px 0 0">Project cost tracking & daily expense analysis based on DSR rates</p></div><button class="btn btn-green" onclick="exportDPR()">⬇️ Export DPR</button></div>
+  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>Financial Daily Progress Report</h2><p class="sub" style="margin:4px 0 0">Project cost tracking & daily expense analysis from your BOQ value</p></div><button class="btn btn-green" onclick="exportDPR()">⬇️ Export DPR</button></div>
   <div class="grid g4" style="margin:18px 0">
     ${statBox("💰","Total Project Budget",fmtINR(ps.totalBudget),"#eff6ff","#1d4ed8")}
     ${statBox("📅","Project Duration",ps.duration+" Days","#f0fdf4","#15803d")}
@@ -905,7 +727,7 @@ function vProfit(){
   if(!STATE.result)return empty("💹","No Profitability Data","Upload & analyze a BOQ first to compute Gross Profit, Net Profit & Break-even","Upload BOQ","upload");
   const p=STATE.profit,o=STATE.profitOpts,bench=benchmarkTender(p.revenue,null);
   const npColor=p.netProfit>=0?"#16a34a":"#dc2626";
-  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>💹 Profitability & Break-even Analysis</h2><p class="sub" style="margin:4px 0 0">Tender value vs DSR execution cost · ${STATE.result.stateMeta.name}</p></div></div>
+  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>💹 Profitability & Break-even Analysis</h2><p class="sub" style="margin:4px 0 0">Tender value vs estimated execution cost</p></div></div>
   <div class="card" style="margin:14px 0"><h3>Inputs</h3><div class="grid g3">
     <div><label>Tender / Contract Value (₹)</label><input type="number" value="${o.tenderValue||p.revenue}" oninput="updateProfit('revenue',this.value)"/></div>
     <div><label>Site Overhead (% of cost)</label><input type="number" value="${o.sitePct}" oninput="updateProfit('sitePct',this.value)"/></div>
@@ -956,7 +778,7 @@ function vInsights(){
     ${statBox("✅","Clean Items",(r.summary.totalItems-an.length)+" / "+r.summary.totalItems,"#f0fdf4","#15803d")}
   </div>
   <div class="card" style="margin-bottom:16px"><h3>⚠️ Price & Quantity Anomalies</h3>
-    ${an.length?`<div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto">${an.map(a=>`<div style="padding:12px;border-radius:9px;background:${sevBg[a.maxSev]};border:1px solid ${sevColor[a.maxSev]}33"><div style="display:flex;justify-content:space-between;align-items:start;gap:8px"><div style="font-weight:600;font-size:13px">#${a.row||'-'} ${a.code?'['+a.code+'] ':''}${(a.desc||'').slice(0,70)}</div><span class="pill" style="background:${sevColor[a.maxSev]};color:#fff">${a.maxSev.toUpperCase()}</span></div>${a.issues.map(i=>`<div style="font-size:12px;color:${sevColor[i.sev]};margin-top:4px">• <b>${i.type}:</b> ${i.msg}</div>`).join("")}</div>`).join("")}</div>`:`<p style="color:#16a34a">✅ No pricing anomalies detected — all rates are within ±25% of DSR.</p>`}
+    ${an.length?`<div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto">${an.map(a=>`<div style="padding:12px;border-radius:9px;background:${sevBg[a.maxSev]};border:1px solid ${sevColor[a.maxSev]}33"><div style="display:flex;justify-content:space-between;align-items:start;gap:8px"><div style="font-weight:600;font-size:13px">#${a.row||'-'} ${a.code?'['+a.code+'] ':''}${(a.desc||'').slice(0,70)}</div><span class="pill" style="background:${sevColor[a.maxSev]};color:#fff">${a.maxSev.toUpperCase()}</span></div>${a.issues.map(i=>`<div style="font-size:12px;color:${sevColor[i.sev]};margin-top:4px">• <b>${i.type}:</b> ${i.msg}</div>`).join("")}</div>`).join("")}</div>`:`<p style="color:#16a34a">✅ No pricing anomalies detected — all rates are consistent with peer items and cover material cost.</p>`}
   </div>
   <div class="card"><h3>🧪 BOQ Validation Engine</h3>
     ${va.length?`<div style="overflow-x:auto"><table><thead><tr><th>Row</th><th>Severity</th><th>Issue</th></tr></thead><tbody>${va.map(f=>`<tr><td>#${f.row}</td><td><span class="pill" style="background:${f.sev==='error'?'#fef2f2':'#fefce8'};color:${f.sev==='error'?'#dc2626':'#a16207'}">${f.sev}</span></td><td>${f.msg}</td></tr>`).join("")}</tbody></table></div>`:`<p style="color:#16a34a">✅ No data-quality issues — units, quantities & arithmetic all check out.</p>`}
@@ -966,20 +788,20 @@ function vInsights(){
 /* ---------- CURRENT MARKET RATES ---------- */
 function setMarket(k,v){STATE.market[k]=parseFloat(v)||0;}
 function toggleMarket(v){STATE.useMarket=v;if(STATE.result)reRunAnalysis();else render();}
-function reRunAnalysis(goto){if(!STATE.result||!STATE.result.boqItems)return;const res=analyze(STATE.result.boqItems,STATE.source);res.projectName=STATE.result.projectName;res.fileName=STATE.result.fileName;res.itemCount=STATE.result.itemCount;res.metadata=STATE.result.metadata;res.boqItems=STATE.result.boqItems;STATE.result=res;STATE.dpr=genDPR(res,STATE.profitOpts.duration);STATE.profit=computeProfitability(res,{revenue:STATE.profitOpts.tenderValue,sitePct:STATE.profitOpts.sitePct,adminPct:STATE.profitOpts.adminPct});nav(goto||"market");}
+function reRunAnalysis(goto){if(!STATE.result||!STATE.result.boqItems)return;const res=analyze(STATE.result.boqItems);res.projectName=STATE.result.projectName;res.fileName=STATE.result.fileName;res.itemCount=STATE.result.itemCount;res.metadata=STATE.result.metadata;res.boqItems=STATE.result.boqItems;STATE.result=res;STATE.dpr=genDPR(res,STATE.profitOpts.duration);STATE.profit=computeProfitability(res,{revenue:STATE.profitOpts.tenderValue,sitePct:STATE.profitOpts.sitePct,adminPct:STATE.profitOpts.adminPct});nav(goto||"market");}
 function vMarket(){
-  const mr=resolveRates(STATE.source).mr;
-  return `<h2>🏷️ Current Market Rates</h2><p class="sub">Override DSR material rates with live market prices, then re-run the analysis</p>
+  const mr=matRates();
+  return `<h2>🏷️ Current Market Rates</h2><p class="sub">Edit live material prices, then re-run the analysis to value the material takeoff</p>
   <div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer"><input type="checkbox" style="width:auto" ${STATE.useMarket?'checked':''} onchange="toggleMarket(this.checked)"/> Use market rates in analysis</label>
-    <span style="font-size:12px;color:var(--muted-fg)">Base: ${STATE_SOR[STATE.source].name}</span>
+    <span style="font-size:12px;color:var(--muted-fg)">Base: standard commodity prices</span>
     <div style="flex:1"></div>
     <button class="btn btn-primary" onclick="reRunAnalysis('analysis')">↻ Apply & Re-run Analysis</button>
   </div></div>
-  <div class="card"><h3>Material Prices (₹)</h3><div style="overflow-x:auto"><table><thead><tr><th>Material</th><th class="tr">DSR / Base Rate</th><th class="tr">Market Rate (editable)</th><th class="tr">Δ</th></tr></thead><tbody>
-  ${MARKET_RATE_KEYS.map(m=>{const base=mr[m.k]||0;const cur=STATE.market[m.k]||base;const d=base?((cur-base)/base*100):0;return `<tr><td style="font-weight:600">${m.label}</td><td class="tr">${fmtINR(base)}</td><td class="tr"><input type="number" value="${STATE.market[m.k]||''}" placeholder="${base}" style="width:120px;text-align:right;display:inline-block" oninput="setMarket('${m.k}',this.value)"/></td><td class="tr" style="color:${d>0?'#dc2626':d<0?'#16a34a':'var(--muted-fg)'}">${d?(d>0?'+':'')+d.toFixed(0)+'%':'-'}</td></tr>`;}).join("")}
+  <div class="card"><h3>Material Prices (₹)</h3><div style="overflow-x:auto"><table><thead><tr><th>Material</th><th class="tr">Base Rate</th><th class="tr">Market Rate (editable)</th><th class="tr">Δ</th></tr></thead><tbody>
+  ${MARKET_RATE_KEYS.map(m=>{const base=MATERIAL_RATES[m.k]||0;const cur=STATE.market[m.k]||base;const d=base?((cur-base)/base*100):0;return `<tr><td style="font-weight:600">${m.label}</td><td class="tr">${fmtINR(base)}</td><td class="tr"><input type="number" value="${STATE.market[m.k]||''}" placeholder="${base}" style="width:120px;text-align:right;display:inline-block" oninput="setMarket('${m.k}',this.value)"/></td><td class="tr" style="color:${d>0?'#dc2626':d<0?'#16a34a':'var(--muted-fg)'}">${d?(d>0?'+':'')+d.toFixed(0)+'%':'-'}</td></tr>`;}).join("")}
   </tbody></table></div>
-  <div class="note note-blue" style="margin-top:14px">ℹ️ Leave a field blank to keep the DSR/base rate. Enable the checkbox and re-run to recompute material costs at market prices.</div></div>`;
+  <div class="note note-blue" style="margin-top:14px">ℹ️ Leave a field blank to keep the base rate. Enable the checkbox and re-run to recompute material costs at market prices.</div></div>`;
 }
 
 /* ---------- MATERIAL COEFFICIENT LIBRARY ---------- */
@@ -1006,7 +828,7 @@ function vTenders(){
 function exportAnalysis(){
   const r=STATE.result;if(!r)return;
   const wb=XLSX.utils.book_new();
-  const sum=[["Infinity Bid — BOQ Analysis Report"],["Project",r.projectName],["DSR Source",r.source.toUpperCase()+" 2024"],["BOQ Items",r.itemCount],[],["Cost Summary",""],["Material Cost",r.summary.materialCost],["Labor Cost",r.summary.laborCost],["Equipment Cost",r.summary.equipmentCost],["Overhead & Profit",r.summary.overheadCost],["Total Estimated Cost",Math.round(r.summary.estimatedCost)]];
+  const sum=[["Infinity Bid — BOQ Analysis Report"],["Project",r.projectName],["Items",r.itemCount],[],["Cost Summary",""],["Material Cost",r.summary.materialCost],["Labor Cost",r.summary.laborCost],["Equipment Cost",r.summary.equipmentCost],["Overhead & Profit",r.summary.overheadCost],["Project Value",Math.round(r.summary.projectValue)]];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),"Summary");
   const mh=[["Material","Category","Quantity","Unit","Rate","Wastage %","Total Qty","Amount"]];
   r.materials.forEach(m=>mh.push([m.materialName,m.category,m.quantity,m.unit,m.rate,m.wastagePercent,m.totalWithWastage,m.amount]));

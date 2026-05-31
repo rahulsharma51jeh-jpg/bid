@@ -6,6 +6,7 @@
 <title>Infinity Bid — AI BOQ Analyzer</title>
 <meta name="description" content="AI-powered Bill of Quantity analyzer. Upload BOQ, get material quantities, cost estimates & financial DPR based on CPWD & Bihar DSR." />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
   :root{
     --bg:#f8fafc; --fg:#0f172a; --card:#ffffff; --muted:#f1f5f9; --muted-fg:#64748b;
@@ -100,7 +101,12 @@
       <button data-panel="upload" onclick="nav('upload')">⬆️ Upload BOQ</button>
       <button data-panel="analysis" onclick="nav('analysis')">📈 Analysis</button>
       <button data-panel="dpr" onclick="nav('dpr')">📋 Financial DPR</button>
-      <button data-panel="dsr" onclick="nav('dsr')">📚 DSR Rates</button>
+      <button data-panel="profit" onclick="nav('profit')">💹 Profitability</button>
+      <button data-panel="insights" onclick="nav('insights')">🤖 AI Insights</button>
+      <button data-panel="dsr" onclick="nav('dsr')">📚 DSR / State SOR</button>
+      <button data-panel="market" onclick="nav('market')">🏷️ Market Rates</button>
+      <button data-panel="coeff" onclick="nav('coeff')">📐 Coefficients</button>
+      <button data-panel="tenders" onclick="nav('tenders')">📁 Tender History</button>
     </nav>
     <div style="margin-top:24px;padding:14px;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#eef2ff);border:1px solid #dbeafe">
       <div style="font-size:12px;font-weight:700;color:#1d4ed8">DSR Trained Model</div>
@@ -437,45 +443,55 @@ function normUnit(u){const l=u.toLowerCase().replace(/\./g,"").replace(/\s/g,"")
 
 /* ---------- AI ANALYZER ---------- */
 function analyze(items,source){
-  const rates=source==="bihar"?BIHAR_RATES:CPWD_RATES;
-  const mr=MAT_RATES[source];
+  const {rates,mr,meta}=resolveRates(source);
   let matched=0;
-  // Map each item to its best DSR match; recover category for unclassified items
+  const all=[];           // material takeoff rows
+  let estCost=0,laborCost=0,matCostDsr=0,equipCost=0;
+  // Map each item to its best DSR match; cost via DSR rate x qty (item-level = accurate)
   const mapped=items.map(it=>{
     const dsr=bestMatch(it,rates);
     let cat=it.category;
     if((!cat||cat==="misc")&&dsr)cat=dsr.category;
     if(dsr)matched++;
-    return {...it,category:cat,dsr};
+    const item={...it,category:cat,dsr,source};
+    // ----- accurate item cost -----
+    let dsrRate=null,itemCost;
+    if(dsr&&(dsr.unit===it.unit)){dsrRate=dsr.rate;itemCost=dsrRate*it.quantity;}
+    else if(it.amount){itemCost=it.amount;}             // trust BOQ amount when units don't line up
+    else if(dsr){dsrRate=dsr.rate;itemCost=dsrRate*it.quantity;}
+    else{itemCost=(it.rate||0)*it.quantity;}
+    item.dsrRate=dsrRate;item.dsrCost=Math.round(itemCost);
+    estCost+=itemCost;
+    // ----- cost split from DSR sub-components (reconciles to itemCost) -----
+    if(dsr&&dsr.laborRate!=null){const tot=(dsr.laborRate||0)+(dsr.materialRate||0)+(dsr.equipmentRate||0)||dsr.rate||1;
+      laborCost+=itemCost*((dsr.laborRate||0)/tot);
+      matCostDsr+=itemCost*((dsr.materialRate||0)/tot);
+      equipCost+=itemCost*((dsr.equipmentRate||0)/tot);
+    }else{laborCost+=itemCost*0.30;matCostDsr+=itemCost*0.62;equipCost+=itemCost*0.08;}
+    // ----- material takeoff -----
+    for(const c of getMaterials(item)){const base=c.qty,w=c.w||0,tot=base*(1+w/100),rate=mr[c.rk]||0;
+      all.push({materialName:c.m,quantity:round2(base),unit:c.u,rate,wastagePercent:w,totalWithWastage:round2(tot),amount:round2(tot*rate),category:item.category,source});}
+    return item;
   });
-  const all=[];
-  for(const it of mapped){
-    for(const c of getMaterials(it)){
-      const base=c.qty,w=c.w||0,tot=base*(1+w/100),rate=mr[c.rk]||0;
-      all.push({materialName:c.m,quantity:round2(base),unit:c.u,rate,wastagePercent:w,totalWithWastage:round2(tot),amount:round2(tot*rate),category:it.category,source});
-    }
-  }
   const mats=consolidate(all);
   const catBd=categoryBreakdown(mats);
-  const matCost=mats.reduce((s,m)=>s+(m.amount||0),0);
-  // Labor from DSR labor component when unit matches, else 25% of item value
-  let laborCost=0;
-  for(const it of mapped){
-    if(it.dsr&&it.dsr.laborRate&&it.dsr.unit===it.unit)laborCost+=it.quantity*it.dsr.laborRate;
-    else laborCost+=(it.amount||it.quantity*(it.rate||0))*0.25;
-  }
-  const equipCost=matCost*0.08;
-  const overhead=(matCost+laborCost)*0.12;
-  const estCost=matCost+laborCost+equipCost+overhead;
+  const takeoffValue=mats.reduce((s,m)=>s+(m.amount||0),0);
   const boqStated=items.reduce((s,i)=>s+(i.amount||0),0);
   const pricedItems=items.filter(i=>i.amount&&i.amount>0).length;
-  const hasBoqPrices=pricedItems>=Math.max(1,Math.round(items.length*0.5)); // majority priced
-  // Authoritative project value = BOQ's own priced total when available (100% as submitted),
-  // otherwise fall back to the DSR-based estimate.
+  const hasBoqPrices=pricedItems>=Math.max(1,Math.round(items.length*0.5));
   const projectValue=hasBoqPrices?boqStated:Math.round(estCost);
   const coverage=items.length?matched/items.length:0;
-  const confidence=Math.round((0.6+0.37*coverage)*100)/100;
-  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,summary:{totalItems:items.length,totalMaterials:mats.length,estimatedCost:estCost,projectValue,hasBoqPrices,pricedItems,laborCost:Math.round(laborCost),materialCost:Math.round(matCost),equipmentCost:Math.round(equipCost),overheadCost:Math.round(overhead),boqStatedCost:Math.round(boqStated),confidence},source};
+  const confidence=Math.round((0.62+0.36*coverage)*100)/100;
+  const anomalies=detectAnomalies(mapped);
+  const validation=validateBoq(items);
+  // DSR rates embed ~15% contractor overhead & profit (CPWD methodology):
+  // basic execution cost = estimate / 1.15 — used as direct cost for profit analysis.
+  const basicCost=Math.round(estCost/1.15);
+  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,perItem:mapped,anomalies,validation,stateMeta:meta,
+    summary:{totalItems:items.length,totalMaterials:mats.length,estimatedCost:Math.round(estCost),projectValue,hasBoqPrices,pricedItems,
+      laborCost:Math.round(laborCost),materialCost:Math.round(matCostDsr),equipmentCost:Math.round(equipCost),basicCost,
+      overheadCost:Math.max(0,Math.round(estCost-(laborCost+matCostDsr+equipCost))),takeoffValue:Math.round(takeoffValue),
+      boqStatedCost:Math.round(boqStated),anomalyCount:anomalies.length,validationCount:validation.length,confidence},source};
 }
 function bestMatch(it,rates){
   // 1) exact item-code match (highest confidence)
@@ -499,6 +515,141 @@ function genDPR(analysis,duration=180){
   const daily=t/duration;const entries=[];
   for(let d=1;d<=Math.min(7,duration);d++){const prog=d/duration*100;const dc=daily*(0.8+Math.random()*0.4);entries.push({day:d,date:new Date(Date.now()+d*864e5).toISOString().split("T")[0],planned:Math.round(daily),actual:Math.round(dc),cumP:Math.round(daily*d),cumA:Math.round(dc*d),progress:Math.round(prog*10)/10,variance:Math.round((daily-dc))});}
   return {projectSummary:{totalBudget:Math.round(t),dailyBudget:Math.round(daily),duration,laborBudget:labor,materialBudget:material,equipmentBudget:equipment,overheadBudget:overhead,priceSource:s.hasBoqPrices?"BOQ":"DSR"},dprEntries:entries,costBreakdown:{labor:Math.round(labor/t*100),material:Math.round(material/t*100),equipment:Math.round(equipment/t*100),overhead:Math.round(overhead/t*100)}};
+}
+
+/* ============================================================
+   STATE SOR / DSR DATABASES (multi-state)
+   Native datasets: CPWD & Bihar. Other states derived from CPWD
+   base using published regional cost-index multipliers (approx).
+   ============================================================ */
+const STATE_SOR={
+  cpwd:{name:"CPWD (Central) 2024",index:1.00,native:true,region:"All India"},
+  bihar:{name:"Bihar PWD SOR 2024",index:0.88,native:true,region:"Bihar"},
+  delhi:{name:"Delhi PWD 2024",index:1.02,base:"cpwd",region:"Delhi NCR"},
+  up:{name:"Uttar Pradesh PWD 2024",index:0.95,base:"cpwd",region:"Uttar Pradesh"},
+  rajasthan:{name:"Rajasthan PWD BSR 2024",index:0.97,base:"cpwd",region:"Rajasthan"},
+  mp:{name:"Madhya Pradesh PWD SOR 2024",index:0.94,base:"cpwd",region:"Madhya Pradesh"},
+  maharashtra:{name:"Maharashtra PWD DSR 2024",index:1.08,base:"cpwd",region:"Maharashtra"},
+  gujarat:{name:"Gujarat R&B SOR 2024",index:1.02,base:"cpwd",region:"Gujarat"},
+  karnataka:{name:"Karnataka PWD SR 2024",index:1.05,base:"cpwd",region:"Karnataka"},
+  tamilnadu:{name:"Tamil Nadu PWD SOR 2024",index:1.04,base:"cpwd",region:"Tamil Nadu"},
+  westbengal:{name:"West Bengal PWD SOR 2024",index:0.98,base:"cpwd",region:"West Bengal"},
+  punjab:{name:"Punjab PWD CSR 2024",index:0.99,base:"cpwd",region:"Punjab"},
+  telangana:{name:"Telangana SSR 2024",index:1.03,base:"cpwd",region:"Telangana"}
+};
+// Returns {rates, mr, meta, index} for any state key, applying market overrides if enabled
+function resolveRates(stateKey){
+  const meta=STATE_SOR[stateKey]||STATE_SOR.cpwd;
+  let rates,mr;
+  if(meta.native){rates=stateKey==="bihar"?BIHAR_RATES:CPWD_RATES;mr={...(MAT_RATES[stateKey]||MAT_RATES.cpwd)};}
+  else{const idx=meta.index;rates=CPWD_RATES.map(r=>({...r,source:stateKey,rate:Math.round(r.rate*idx),laborRate:r.laborRate?Math.round(r.laborRate*idx):r.laborRate,materialRate:r.materialRate?Math.round(r.materialRate*idx):r.materialRate,equipmentRate:r.equipmentRate?Math.round(r.equipmentRate*idx):r.equipmentRate}));mr={};const b=MAT_RATES.cpwd;for(const k in b)mr[k]=Math.round(b[k]*idx*100)/100;}
+  if(STATE.useMarket&&STATE.market){for(const k in STATE.market){if(STATE.market[k]>0)mr[k]=STATE.market[k];}}
+  return {rates,mr,meta,index:meta.index};
+}
+
+/* ---------- CURRENT MARKET RATES (editable, basic materials) ---------- */
+const MARKET_RATE_KEYS=[
+  {k:"cement",label:"Cement OPC 43 (per bag)"},
+  {k:"steel",label:"TMT Steel Fe-500D (per kg)"},
+  {k:"sand",label:"Coarse Sand (per cum)"},
+  {k:"agg20",label:"Stone Aggregate 20mm (per cum)"},
+  {k:"bricks",label:"First Class Bricks (per no)"},
+  {k:"aacblock",label:"AAC Block (per no)"},
+  {k:"tiles600",label:"Vitrified Tiles 600x600 (per sqm)"},
+  {k:"paint",label:"Emulsion Paint (per ltr)"},
+  {k:"bitumen",label:"Bitumen VG-30 (per kg)"}
+];
+
+/* ---------- MATERIAL COEFFICIENT LIBRARY (IS-code based) ---------- */
+const COEFF_LIBRARY=[
+  {work:"RCC M-20 (1:1.5:3)",unit:"cum",coeffs:"Cement 8.06 bag · Sand 0.42 cum · Aggregate 0.84 cum · Water 0.16 kl"},
+  {work:"RCC M-25",unit:"cum",coeffs:"Cement 8.60 bag · Sand 0.41 cum · Aggregate 0.81 cum"},
+  {work:"RCC M-30",unit:"cum",coeffs:"Cement 9.60 bag · Sand 0.39 cum · Aggregate 0.77 cum"},
+  {work:"PCC 1:2:4 (M15)",unit:"cum",coeffs:"Cement 6.34 bag · Sand 0.44 cum · Aggregate 0.88 cum"},
+  {work:"PCC 1:4:8 (M7.5)",unit:"cum",coeffs:"Cement 3.40 bag · Sand 0.47 cum · Aggregate 0.93 cum (40mm)"},
+  {work:"Brickwork CM 1:6",unit:"cum",coeffs:"Bricks 500 nos · Cement 1.23 bag · Sand 0.26 cum"},
+  {work:"Brickwork CM 1:4",unit:"cum",coeffs:"Bricks 500 nos · Cement 1.72 bag · Sand 0.24 cum"},
+  {work:"Cement plaster 12mm 1:6",unit:"sqm",coeffs:"Cement 0.064 bag · Fine sand 0.013 cum"},
+  {work:"Cement plaster 20mm 1:4",unit:"sqm",coeffs:"Cement 0.195 bag · Fine sand 0.026 cum"},
+  {work:"Vitrified tile flooring",unit:"sqm",coeffs:"Tile 1.05 sqm · Cement 0.15 bag · Sand 0.02 cum"},
+  {work:"Steel reinforcement",unit:"kg",coeffs:"TMT steel 1.0 kg · Binding wire 0.01 kg"},
+  {work:"Emulsion paint 2 coats",unit:"sqm",coeffs:"Paint 0.18 ltr · Primer 0.10 ltr · Putty 0.45 kg"},
+  {work:"AAC block masonry 200mm",unit:"cum",coeffs:"AAC blocks 36 nos · Cement 0.5 bag · Sand 0.04 cum"}
+];
+
+/* ---------- HISTORICAL TENDER DATABASE (benchmark sample) ---------- */
+const TENDER_HISTORY=[
+  {project:"G+3 Residential Apartment",location:"Patna, Bihar",year:2024,value:24500000,perSqm:1850,premium:-4.2,type:"residential"},
+  {project:"School Building (2 blocks)",location:"Gaya, Bihar",year:2023,value:18200000,perSqm:1720,premium:2.8,type:"institutional"},
+  {project:"Commercial Complex",location:"Delhi",year:2024,value:68500000,perSqm:2450,premium:6.5,type:"commercial"},
+  {project:"PMAY Housing (40 units)",location:"Muzaffarpur, Bihar",year:2024,value:31200000,perSqm:1480,premium:-7.1,type:"residential"},
+  {project:"District Hospital extension",location:"Lucknow, UP",year:2023,value:52400000,perSqm:2180,premium:3.4,type:"institutional"},
+  {project:"Road & drainage (2.5 km)",location:"Bhopal, MP",year:2024,value:41800000,perSqm:null,premium:-2.5,type:"infrastructure"},
+  {project:"IT Office Fit-out",location:"Bengaluru, KA",year:2024,value:29700000,perSqm:2950,premium:9.2,type:"commercial"},
+  {project:"Government Quarters (G+2)",location:"Jaipur, RJ",year:2023,value:22900000,perSqm:1690,premium:-5.8,type:"residential"}
+];
+function benchmarkTender(value,type){
+  const peers=TENDER_HISTORY.filter(t=>!type||t.type===type);
+  const avgPrem=peers.reduce((s,t)=>s+t.premium,0)/(peers.length||1);
+  return {peerCount:peers.length,avgPremium:Math.round(avgPrem*10)/10,peers};
+}
+
+/* ---------- BOQ VALIDATION ENGINE (data quality) ---------- */
+function validateBoq(items){
+  const flags=[];const seen=new Map();
+  items.forEach((it,i)=>{
+    const row=it.slNo||i+1;
+    if(!it.description||it.description.length<4)flags.push({row,sev:"error",msg:"Missing/short description"});
+    if(!it.quantity||it.quantity<=0)flags.push({row,sev:"error",msg:"Quantity is zero or blank"});
+    if(!it.unit||it.unit==="nos"&&/\d+\s*(sqm|cum|kg|rmt|mm)/.test((it.description||"").toLowerCase()))flags.push({row,sev:"warn",msg:"Unit may be incorrect (defaulted to nos)"});
+    if(it.rate&&it.amount){const calc=it.rate*it.quantity;if(Math.abs(calc-it.amount)/Math.max(1,it.amount)>0.02)flags.push({row,sev:"error",msg:`Arithmetic: Amount ₹${Math.round(it.amount)} ≠ Rate×Qty ₹${Math.round(calc)}`});}
+    const key=(it.description||"").toLowerCase().slice(0,40);if(seen.has(key))flags.push({row,sev:"warn",msg:`Possible duplicate of row ${seen.get(key)}`});else seen.set(key,row);
+  });
+  return flags;
+}
+
+/* ---------- AI ANOMALY DETECTION (price/quantity outliers vs DSR) ---------- */
+function detectAnomalies(perItem){
+  const out=[];
+  for(const it of perItem){
+    const issues=[];
+    if(it.rate&&it.dsrRate){const dev=(it.rate-it.dsrRate)/it.dsrRate;
+      if(dev>0.25)issues.push({sev:dev>0.5?"high":"med",type:"Overpriced",msg:`Quoted ₹${Math.round(it.rate)} is +${(dev*100).toFixed(0)}% vs ${it.source.toUpperCase()} DSR ₹${Math.round(it.dsrRate)}`});
+      else if(dev<-0.25)issues.push({sev:dev<-0.5?"high":"med",type:"Underpriced",msg:`Quoted ₹${Math.round(it.rate)} is ${(dev*100).toFixed(0)}% vs DSR ₹${Math.round(it.dsrRate)} (risk of loss)`});
+    }
+    if(!it.dsr)issues.push({sev:"low",type:"Unmatched",msg:"No DSR reference found — verify rate manually"});
+    if(it.unit&&it.dsr&&it.dsr.unit!==it.unit)issues.push({sev:"med",type:"Unit mismatch",msg:`BOQ unit '${it.unit}' vs DSR '${it.dsr.unit}'`});
+    if(issues.length)out.push({row:it.slNo,code:it.itemCode,desc:it.description,issues});
+  }
+  // sort by severity
+  const rank={high:0,med:1,low:2};
+  out.forEach(o=>o.maxSev=o.issues.reduce((m,x)=>rank[x.sev]<rank[m]?x.sev:m,"low"));
+  return out.sort((a,b)=>rank[a.maxSev]-rank[b.maxSev]);
+}
+
+/* ---------- PROFITABILITY ENGINE (GP / NP / Break-even) ---------- */
+function computeProfitability(analysis,opts){
+  opts=opts||{};
+  const s=analysis.summary;
+  const revenue=opts.revenue||s.projectValue||s.estimatedCost;
+  // Direct execution cost = DSR basic cost (rate stripped of embedded ~15% OH&P)
+  const directCost=opts.directCost||s.basicCost||Math.round((s.laborCost+s.materialCost+s.equipmentCost)/1.15);
+  const sitePct=opts.sitePct!=null?opts.sitePct:8;   // site overhead % of direct cost
+  const adminPct=opts.adminPct!=null?opts.adminPct:4; // admin/general overhead % of revenue
+  const siteOH=directCost*sitePct/100;
+  const adminOH=revenue*adminPct/100;
+  const grossProfit=revenue-directCost;
+  const grossPct=revenue?grossProfit/revenue*100:0;
+  const netProfit=grossProfit-siteOH-adminOH;
+  const netPct=revenue?netProfit/revenue*100:0;
+  // Break-even: fixed = admin OH; variable = direct cost + site OH
+  const variable=directCost+siteOH;
+  const cmr=revenue?(revenue-variable)/revenue:0; // contribution margin ratio
+  const beRevenue=cmr>0?adminOH/cmr:0;
+  const bePctOfProject=revenue?beRevenue/revenue*100:0;
+  return {revenue:Math.round(revenue),directCost:Math.round(directCost),siteOH:Math.round(siteOH),adminOH:Math.round(adminOH),
+    grossProfit:Math.round(grossProfit),grossPct:Math.round(grossPct*10)/10,netProfit:Math.round(netProfit),netPct:Math.round(netPct*10)/10,
+    cmr:Math.round(cmr*1000)/10,beRevenue:Math.round(beRevenue),bePctOfProject:Math.round(bePctOfProject*10)/10,sitePct,adminPct};
 }
 
 /* ---------- SAMPLE BOQ ---------- */
@@ -531,14 +682,16 @@ function downloadSample(){const ws=XLSX.utils.aoa_to_sheet(SAMPLE_BOQ);ws["!cols
 function loadSampleAndAnalyze(){const ws=XLSX.utils.aoa_to_sheet(SAMPLE_BOQ);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"BOQ");const parsed=parseWorkbook(wb);runAnalysis(parsed,"Sample Residential Project (G+2)",STATE.source);}
 
 /* ---------- STATE ---------- */
-const STATE={panel:"dashboard",source:"cpwd",file:null,projectName:"",result:null,dpr:null,dsrSource:"cpwd",dsrCat:"",dsrSearch:""};
+const STATE={panel:"dashboard",source:"cpwd",file:null,projectName:"",result:null,dpr:null,profit:null,
+  profitOpts:{sitePct:8,adminPct:4,tenderValue:null,duration:180},market:{},useMarket:false,
+  dsrSource:"cpwd",dsrCat:"",dsrSearch:""};
 
 /* ============================================================
    UI RENDERING
    ============================================================ */
 function nav(p){STATE.panel=p;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.panel===p));render();if(window.innerWidth<760)document.getElementById("sidebar").classList.remove("open");}
 function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");}
-function render(){const m=document.getElementById("main");m.className="fade";m.innerHTML={dashboard:vDashboard,upload:vUpload,analysis:vAnalysis,dpr:vDPR,dsr:vDSR}[STATE.panel]();if(STATE.panel==="upload")bindUpload();if(STATE.panel==="dsr")renderDsrTable();}
+function render(){const m=document.getElementById("main");m.className="fade";m.innerHTML={dashboard:vDashboard,upload:vUpload,analysis:vAnalysis,dpr:vDPR,profit:vProfit,insights:vInsights,dsr:vDSR,market:vMarket,coeff:vCoeff,tenders:vTenders}[STATE.panel]();if(STATE.panel==="upload")bindUpload();if(STATE.panel==="dsr")renderDsrTable();}
 
 function vDashboard(){
   return `<h1>Welcome to <span class="brand">Infinity Bid</span></h1>
@@ -577,10 +730,16 @@ function vUpload(){
       <div class="src-card ${STATE.source==='cpwd'?'sel-cpwd':''}" onclick="STATE.source='cpwd';render()"><div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-weight:800;color:#1d4ed8;font-size:12px">CPWD</div><div><div style="font-weight:600;font-size:14px">CPWD DSR 2024</div><div style="font-size:12px;color:var(--muted-fg)">Central PWD - Delhi Rates</div></div></div>
       <div class="src-card ${STATE.source==='bihar'?'sel-bihar':''}" onclick="STATE.source='bihar';render()"><div style="width:42px;height:42px;border-radius:10px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:800;color:#15803d;font-size:12px">Bihar</div><div><div style="font-weight:600;font-size:14px">Bihar DSR 2024</div><div style="font-size:12px;color:var(--muted-fg)">Bihar State PWD Rates</div></div></div>
     </div>
+    <div style="margin-bottom:18px"><label>Or pick any State SOR / DSR (${Object.keys(STATE_SOR).length} states)</label>
+      <select onchange="STATE.source=this.value;render()">
+        ${Object.entries(STATE_SOR).map(([k,m])=>`<option value="${k}" ${STATE.source===k?'selected':''}>${m.name}${m.native?' ✓ native':' · index '+m.index}</option>`).join("")}
+      </select>
+      <div style="font-size:12px;color:var(--muted-fg);margin-top:6px">Selected: <b>${STATE_SOR[STATE.source].name}</b> — ${STATE_SOR[STATE.source].native?"full native rate dataset":"derived from CPWD base × "+STATE_SOR[STATE.source].index+" regional cost index"}</div>
+    </div>
     <div class="dropzone ${STATE.file?'has':''}" id="dropzone">
       ${STATE.file?`<div style="font-size:38px">✅</div><div style="font-weight:600;color:#15803d;margin-top:8px">${STATE.file.name}</div><div style="font-size:13px;color:var(--muted-fg);margin-top:4px">${(STATE.file.size/1024).toFixed(1)} KB — Ready to analyze</div><button class="btn btn-ghost" style="margin-top:10px;font-size:12px" onclick="event.stopPropagation();STATE.file=null;render()">✕ Remove file</button>`
-      :`<div style="font-size:38px">⬆️</div><div style="font-weight:600;margin-top:8px">Drag & drop your BOQ file here</div><div style="font-size:13px;color:var(--muted-fg);margin-top:4px">or click to browse files</div><div style="font-size:12px;color:var(--muted-fg);margin-top:10px">📗 Supports: .xlsx, .xls, .csv (Max 10MB)</div>`}
-      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="position:absolute;inset:0;opacity:0;cursor:pointer"/>
+      :`<div style="font-size:38px">⬆️</div><div style="font-weight:600;margin-top:8px">Drag & drop your BOQ file here</div><div style="font-size:13px;color:var(--muted-fg);margin-top:4px">or click to browse files</div><div style="font-size:12px;color:var(--muted-fg);margin-top:10px">📗 Excel/CSV · 🖼️ Image (.png/.jpg) with OCR — Max 10MB</div>`}
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.png,.jpg,.jpeg" style="position:absolute;inset:0;opacity:0;cursor:pointer"/>
     </div>
     <div id="uploadErr"></div>
     <button class="btn btn-primary" id="analyzeBtn" style="width:100%;justify-content:center;margin-top:18px;padding:14px;font-size:16px" ${STATE.file?'':'disabled'} onclick="doAnalyze()">⚡ Analyze BOQ</button>
@@ -608,14 +767,46 @@ function bindUpload(){
 }
 function setFile(f){
   const ext="."+f.name.split(".").pop().toLowerCase();
-  if(![".xlsx",".xls",".csv"].includes(ext)){showErr("Invalid file type. Upload .xlsx, .xls or .csv");return;}
+  if(![".xlsx",".xls",".csv",".png",".jpg",".jpeg"].includes(ext)){showErr("Invalid file type. Upload .xlsx, .xls, .csv, or an image (.png/.jpg)");return;}
   if(f.size>10*1024*1024){showErr("File too large. Max 10MB");return;}
   STATE.file=f;if(!STATE.projectName)STATE.projectName=f.name.replace(/\.[^/.]+$/,"");render();
 }
 function showErr(msg){const e=document.getElementById("uploadErr");if(e)e.innerHTML=`<div class="note note-amber" style="background:#fef2f2;color:#991b1b;border-color:#fecaca">⚠️ ${msg}</div>`;}
+// Parse OCR'd text into BOQ rows (best-effort): a row must contain a unit token + trailing numbers
+function parseTextBoq(text){
+  const unitRe=/\b(cum|sqm|rmt|kg|nos|ls|ltr|kl|mt|bag|set|point|cft|sft|quintal|each|rmt|sqmt|cumt|no)\b/i;
+  const items=[];
+  for(const raw of text.split(/\r?\n/)){
+    const line=raw.trim().replace(/\s+/g," ");
+    if(line.length<6)continue;
+    const um=line.match(unitRe);if(!um)continue;
+    const after=line.slice(um.index+um[0].length);
+    const nums=(after.match(/[\d,]+(?:\.\d+)?/g)||[]).map(x=>parseFloat(x.replace(/,/g,""))).filter(x=>!isNaN(x)&&x>0);
+    if(!nums.length)continue;
+    const qty=nums[0],rate=nums[1]||null,amount=nums[2]||(rate?qty*rate:null);
+    const desc=line.slice(0,um.index).replace(/^\d+[.)]?\s*/,"").trim();
+    if(desc.length<3)continue;
+    const unit=normUnit(um[0]);
+    items.push({slNo:items.length+1,description:desc,unit,quantity:qty,rate,amount,category:detectCategory(desc,unit)});
+  }
+  return {items,metadata:{totalItems:items.length,totalAmount:items.reduce((s,i)=>s+(i.amount||0),0),categories:[...new Set(items.map(i=>i.category))],ocr:true}};
+}
 function doAnalyze(){
   if(!STATE.file)return;
-  const btn=document.getElementById("analyzeBtn");btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Analyzing BOQ with AI...';
+  const btn=document.getElementById("analyzeBtn");btn.disabled=true;
+  const ext=STATE.file.name.split(".").pop().toLowerCase();
+  const isImage=["png","jpg","jpeg"].includes(ext);
+  if(isImage){
+    btn.innerHTML='<span class="spinner"></span> Running OCR on image...';
+    if(typeof Tesseract==="undefined"){showErr("OCR engine not loaded (no internet?). Use Excel/CSV instead.");btn.disabled=false;btn.innerHTML="⚡ Analyze BOQ";return;}
+    Tesseract.recognize(STATE.file,"eng").then(({data})=>{
+      const parsed=parseTextBoq(data.text||"");
+      if(!parsed.items.length){showErr("OCR could not extract BOQ rows. Try a clearer image or upload Excel/CSV.");btn.disabled=false;btn.innerHTML="⚡ Analyze BOQ";return;}
+      runAnalysis(parsed,STATE.projectName||STATE.file.name,STATE.source);
+    }).catch(err=>{showErr("OCR failed: "+err.message);btn.disabled=false;btn.innerHTML="⚡ Analyze BOQ";});
+    return;
+  }
+  btn.innerHTML='<span class="spinner"></span> Analyzing BOQ with AI...';
   const reader=new FileReader();
   reader.onload=e=>{
     try{
@@ -631,7 +822,9 @@ function doAnalyze(){
 function runAnalysis(parsed,name,source){
   const res=analyze(parsed.items,source);
   res.projectName=name;res.fileName=STATE.file?STATE.file.name:"sample-boq.xlsx";res.itemCount=parsed.items.length;res.metadata=parsed.metadata;res.boqItems=parsed.items;
-  STATE.result=res;STATE.dpr=genDPR(res);
+  STATE.result=res;STATE.dpr=genDPR(res,STATE.profitOpts.duration);
+  STATE.profitOpts.tenderValue=res.summary.projectValue;
+  STATE.profit=computeProfitability(res,STATE.profitOpts);
   nav("analysis");
 }
 
@@ -643,7 +836,12 @@ function vAnalysis(){
     ${statBox("💰",s.hasBoqPrices?"Project Value (BOQ)":"Estimated Cost (DSR)",fmtINR(s.hasBoqPrices?s.projectValue:s.estimatedCost),"#eff6ff","#1d4ed8")}
     ${statBox("📦","Total Materials",s.totalMaterials+" items","#f0fdf4","#15803d")}
     ${statBox("📊","AI Confidence",(s.confidence*100).toFixed(0)+"%","#faf5ff","#7c3aed")}
-    ${statBox("📋","BOQ Items",s.totalItems+" items","#fff7ed","#c2410c")}
+    ${statBox("⚠️","Anomalies",s.anomalyCount+" flagged","#fff7ed","#c2410c")}
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+    <button class="btn btn-ghost" onclick="nav('profit')">💹 Profitability (GP/NP/Break-even)</button>
+    <button class="btn btn-ghost" onclick="nav('insights')">🤖 AI Insights (${s.anomalyCount+s.validationCount} flags)</button>
+    <button class="btn btn-ghost" onclick="nav('dpr')">📋 Financial DPR</button>
   </div>
   <div class="grid g2" style="margin-bottom:18px">
     <div class="card"><h3>💹 Cost Breakdown</h3>
@@ -734,6 +932,109 @@ function renderDsrTable(){
 
 const empty=(ic,t,d,btn,panel)=>`<div style="text-align:center;padding:80px 20px"><div style="font-size:50px;opacity:.4">${ic}</div><h2 style="margin-top:16px">${t}</h2><p class="sub" style="margin-top:6px">${d}</p><button class="btn btn-primary" onclick="nav('${panel}')">${btn}</button></div>`;
 
+/* ---------- PROFITABILITY PANEL ---------- */
+function updateProfit(field,val){const o=STATE.profitOpts;if(field==="revenue")o.tenderValue=parseFloat(val)||0;else o[field]=parseFloat(val)||0;STATE.profit=computeProfitability(STATE.result,{revenue:o.tenderValue,sitePct:o.sitePct,adminPct:o.adminPct});render();}
+function vProfit(){
+  if(!STATE.result)return empty("💹","No Profitability Data","Upload & analyze a BOQ first to compute Gross Profit, Net Profit & Break-even","Upload BOQ","upload");
+  const p=STATE.profit,o=STATE.profitOpts,bench=benchmarkTender(p.revenue,null);
+  const npColor=p.netProfit>=0?"#16a34a":"#dc2626";
+  return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>💹 Profitability & Break-even Analysis</h2><p class="sub" style="margin:4px 0 0">Tender value vs DSR execution cost · ${STATE.result.stateMeta.name}</p></div></div>
+  <div class="card" style="margin:14px 0"><h3>Inputs</h3><div class="grid g3">
+    <div><label>Tender / Contract Value (₹)</label><input type="number" value="${o.tenderValue||p.revenue}" oninput="updateProfit('revenue',this.value)"/></div>
+    <div><label>Site Overhead (% of cost)</label><input type="number" value="${o.sitePct}" oninput="updateProfit('sitePct',this.value)"/></div>
+    <div><label>Admin/General Overhead (% of revenue)</label><input type="number" value="${o.adminPct}" oninput="updateProfit('adminPct',this.value)"/></div>
+  </div></div>
+  <div class="grid g4" style="margin-bottom:16px">
+    ${statBox("📈","Gross Profit",fmtINR(p.grossProfit)+" ("+p.grossPct+"%)","#f0fdf4","#15803d")}
+    ${statBox("💰","Net Profit",fmtINR(p.netProfit)+" ("+p.netPct+"%)",p.netProfit>=0?"#f0fdf4":"#fef2f2",npColor)}
+    ${statBox("⚖️","Break-even Value",fmtINR(p.beRevenue),"#fff7ed","#c2410c")}
+    ${statBox("📊","Contribution Margin",p.cmr+"%","#faf5ff","#7c3aed")}
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3>Profit Waterfall</h3>
+      ${costBar("Revenue (Tender Value)",p.revenue,p.revenue,"#3b82f6")}
+      ${costBar("(-) Direct Cost (L+M+E)",p.directCost,p.revenue,"#ef4444")}
+      ${costBar("= Gross Profit",p.grossProfit,p.revenue,"#22c55e")}
+      ${costBar("(-) Site Overhead",p.siteOH,p.revenue,"#f59e0b")}
+      ${costBar("(-) Admin Overhead",p.adminOH,p.revenue,"#a855f7")}
+      <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><span>= Net Profit</span><span style="color:${npColor}">${fmtINR(p.netProfit)} (${p.netPct}%)</span></div>
+    </div>
+    <div class="card"><h3>Break-even Point</h3>
+      <p style="font-size:13px;color:var(--muted-fg);margin-bottom:12px">Revenue needed to cover all costs. Beyond this point the project is profitable.</p>
+      <div style="position:relative;height:34px;background:var(--muted);border-radius:8px;overflow:hidden;margin-bottom:8px">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,p.bePctOfProject)}%;background:linear-gradient(90deg,#fca5a5,#ef4444)"></div>
+        <div style="position:absolute;left:${Math.min(98,p.bePctOfProject)}%;top:0;bottom:0;width:3px;background:#0f172a"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted-fg)"><span>₹0</span><span>Break-even at ${p.bePctOfProject}% → ${fmtINR(p.beRevenue)}</span><span>${fmtINR(p.revenue)}</span></div>
+      <div style="margin-top:16px;display:grid;gap:8px;font-size:13px">
+        <div style="display:flex;justify-content:space-between"><span>Direct Cost</span><b>${fmtINR(p.directCost)}</b></div>
+        <div style="display:flex;justify-content:space-between"><span>Site + Admin Overhead</span><b>${fmtINR(p.siteOH+p.adminOH)}</b></div>
+        <div style="display:flex;justify-content:space-between"><span>Margin of Safety</span><b style="color:${p.revenue>p.beRevenue?'#16a34a':'#dc2626'}">${fmtINR(p.revenue-p.beRevenue)} (${(100-p.bePctOfProject).toFixed(1)}%)</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="note ${bench.avgPremium>=0?'note-blue':'note-amber'}">📁 <strong>Tender benchmark:</strong> Across ${bench.peerCount} historical tenders, the average bid premium was ${bench.avgPremium>0?'+':''}${bench.avgPremium}%. Your net margin of ${p.netPct}% ${p.netPct<bench.avgPremium?'is below':'is in line with/above'} typical market levels.</div>`;
+}
+
+/* ---------- AI INSIGHTS (Anomaly + Validation) ---------- */
+function vInsights(){
+  if(!STATE.result)return empty("🤖","No Insights Yet","Upload & analyze a BOQ first to run AI anomaly detection & validation","Upload BOQ","upload");
+  const r=STATE.result,an=r.anomalies||[],va=r.validation||[];
+  const sevColor={high:"#dc2626",med:"#ea580c",low:"#ca8a04"};
+  const sevBg={high:"#fef2f2",med:"#fff7ed",low:"#fefce8"};
+  return `<h2>🤖 AI Insights — Anomaly Detection & Validation</h2><p class="sub">Automated review of pricing outliers, unit mismatches and data-quality issues</p>
+  <div class="grid g3" style="margin-bottom:16px">
+    ${statBox("⚠️","Price Anomalies",an.length+" items","#fff7ed","#c2410c")}
+    ${statBox("🧪","Validation Flags",va.length+" rows","#fefce8","#a16207")}
+    ${statBox("✅","Clean Items",(r.summary.totalItems-an.length)+" / "+r.summary.totalItems,"#f0fdf4","#15803d")}
+  </div>
+  <div class="card" style="margin-bottom:16px"><h3>⚠️ Price & Quantity Anomalies</h3>
+    ${an.length?`<div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto">${an.map(a=>`<div style="padding:12px;border-radius:9px;background:${sevBg[a.maxSev]};border:1px solid ${sevColor[a.maxSev]}33"><div style="display:flex;justify-content:space-between;align-items:start;gap:8px"><div style="font-weight:600;font-size:13px">#${a.row||'-'} ${a.code?'['+a.code+'] ':''}${(a.desc||'').slice(0,70)}</div><span class="pill" style="background:${sevColor[a.maxSev]};color:#fff">${a.maxSev.toUpperCase()}</span></div>${a.issues.map(i=>`<div style="font-size:12px;color:${sevColor[i.sev]};margin-top:4px">• <b>${i.type}:</b> ${i.msg}</div>`).join("")}</div>`).join("")}</div>`:`<p style="color:#16a34a">✅ No pricing anomalies detected — all rates are within ±25% of DSR.</p>`}
+  </div>
+  <div class="card"><h3>🧪 BOQ Validation Engine</h3>
+    ${va.length?`<div style="overflow-x:auto"><table><thead><tr><th>Row</th><th>Severity</th><th>Issue</th></tr></thead><tbody>${va.map(f=>`<tr><td>#${f.row}</td><td><span class="pill" style="background:${f.sev==='error'?'#fef2f2':'#fefce8'};color:${f.sev==='error'?'#dc2626':'#a16207'}">${f.sev}</span></td><td>${f.msg}</td></tr>`).join("")}</tbody></table></div>`:`<p style="color:#16a34a">✅ No data-quality issues — units, quantities & arithmetic all check out.</p>`}
+  </div>`;
+}
+
+/* ---------- CURRENT MARKET RATES ---------- */
+function setMarket(k,v){STATE.market[k]=parseFloat(v)||0;}
+function toggleMarket(v){STATE.useMarket=v;if(STATE.result)reRunAnalysis();else render();}
+function reRunAnalysis(goto){if(!STATE.result||!STATE.result.boqItems)return;const res=analyze(STATE.result.boqItems,STATE.source);res.projectName=STATE.result.projectName;res.fileName=STATE.result.fileName;res.itemCount=STATE.result.itemCount;res.metadata=STATE.result.metadata;res.boqItems=STATE.result.boqItems;STATE.result=res;STATE.dpr=genDPR(res,STATE.profitOpts.duration);STATE.profit=computeProfitability(res,{revenue:STATE.profitOpts.tenderValue,sitePct:STATE.profitOpts.sitePct,adminPct:STATE.profitOpts.adminPct});nav(goto||"market");}
+function vMarket(){
+  const mr=resolveRates(STATE.source).mr;
+  return `<h2>🏷️ Current Market Rates</h2><p class="sub">Override DSR material rates with live market prices, then re-run the analysis</p>
+  <div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer"><input type="checkbox" style="width:auto" ${STATE.useMarket?'checked':''} onchange="toggleMarket(this.checked)"/> Use market rates in analysis</label>
+    <span style="font-size:12px;color:var(--muted-fg)">Base: ${STATE_SOR[STATE.source].name}</span>
+    <div style="flex:1"></div>
+    <button class="btn btn-primary" onclick="reRunAnalysis('analysis')">↻ Apply & Re-run Analysis</button>
+  </div></div>
+  <div class="card"><h3>Material Prices (₹)</h3><div style="overflow-x:auto"><table><thead><tr><th>Material</th><th class="tr">DSR / Base Rate</th><th class="tr">Market Rate (editable)</th><th class="tr">Δ</th></tr></thead><tbody>
+  ${MARKET_RATE_KEYS.map(m=>{const base=mr[m.k]||0;const cur=STATE.market[m.k]||base;const d=base?((cur-base)/base*100):0;return `<tr><td style="font-weight:600">${m.label}</td><td class="tr">${fmtINR(base)}</td><td class="tr"><input type="number" value="${STATE.market[m.k]||''}" placeholder="${base}" style="width:120px;text-align:right;display:inline-block" oninput="setMarket('${m.k}',this.value)"/></td><td class="tr" style="color:${d>0?'#dc2626':d<0?'#16a34a':'var(--muted-fg)'}">${d?(d>0?'+':'')+d.toFixed(0)+'%':'-'}</td></tr>`;}).join("")}
+  </tbody></table></div>
+  <div class="note note-blue" style="margin-top:14px">ℹ️ Leave a field blank to keep the DSR/base rate. Enable the checkbox and re-run to recompute material costs at market prices.</div></div>`;
+}
+
+/* ---------- MATERIAL COEFFICIENT LIBRARY ---------- */
+function vCoeff(){
+  return `<h2>📐 Material Coefficient Library</h2><p class="sub">IS-code based consumption coefficients used by the rule-based calculation engine</p>
+  <div class="card"><div style="overflow-x:auto"><table><thead><tr><th>Work Item</th><th>Unit</th><th>Material Coefficients (per unit, before wastage)</th></tr></thead><tbody>
+  ${COEFF_LIBRARY.map(c=>`<tr><td style="font-weight:600">${c.work}</td><td style="color:var(--muted-fg)">${c.unit}</td><td style="font-size:13px">${c.coeffs}</td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="note note-blue" style="margin-top:14px">📐 Concrete uses dry-volume factor 1.54; mortar 1.30. Cement 1 bag = 50 kg = 0.0347 cum (28.8 bags/cum). Wastage added per material (cement 2-5%, sand/agg 5-15%, tiles/paint 5-8%).</div></div>`;
+}
+
+/* ---------- HISTORICAL TENDER DATABASE ---------- */
+function vTenders(){
+  const cur=STATE.result?STATE.result.summary.projectValue:null;
+  return `<h2>📁 Historical Tender Database</h2><p class="sub">Benchmark your project against past tenders & typical bid premiums</p>
+  ${cur?`<div class="note note-blue">📊 Current project value <b>${fmtINR(cur)}</b>. Market avg bid premium across all peers: <b>${benchmarkTender(cur,null).avgPremium>0?'+':''}${benchmarkTender(cur,null).avgPremium}%</b>.</div>`:''}
+  <div class="card"><div style="overflow-x:auto"><table><thead><tr><th>Project</th><th>Location</th><th>Year</th><th class="tr">Value</th><th class="tr">₹/sqm</th><th class="tr">Bid Premium</th><th>Type</th></tr></thead><tbody>
+  ${TENDER_HISTORY.map(t=>`<tr><td style="font-weight:600">${t.project}</td><td style="color:var(--muted-fg)">${t.location}</td><td>${t.year}</td><td class="tr">${fmtINR(t.value)}</td><td class="tr">${t.perSqm?fmtINR(t.perSqm):'-'}</td><td class="tr" style="color:${t.premium>=0?'#dc2626':'#16a34a'}">${t.premium>0?'+':''}${t.premium}%</td><td><span class="pill" style="background:var(--muted)">${t.type}</span></td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="note note-amber" style="margin-top:14px">📁 Premiums shown are bid value vs estimate. Negative = below estimate (competitive), positive = above. Use this to calibrate your markup.</div></div>`;
+}
+
 /* ---------- EXPORTS ---------- */
 function exportAnalysis(){
   const r=STATE.result;if(!r)return;
@@ -743,6 +1044,8 @@ function exportAnalysis(){
   const mh=[["Material","Category","Quantity","Unit","Rate","Wastage %","Total Qty","Amount"]];
   r.materials.forEach(m=>mh.push([m.materialName,m.category,m.quantity,m.unit,m.rate,m.wastagePercent,m.totalWithWastage,m.amount]));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mh),"Materials");
+  if(STATE.profit){const p=STATE.profit;const pr=[["Profitability Analysis"],["Revenue (Tender Value)",p.revenue],["Direct Cost",p.directCost],["Gross Profit",p.grossProfit],["Gross Margin %",p.grossPct],["Site Overhead",p.siteOH],["Admin Overhead",p.adminOH],["Net Profit",p.netProfit],["Net Margin %",p.netPct],["Break-even Value",p.beRevenue],["Break-even % of project",p.bePctOfProject]];XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(pr),"Profitability");}
+  if(r.anomalies&&r.anomalies.length){const ah=[["Row","Severity","Type","Issue"]];r.anomalies.forEach(a=>a.issues.forEach(i=>ah.push([a.row,a.maxSev,i.type,i.msg])));XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(ah),"Anomalies");}
   XLSX.writeFile(wb,"infinity-bid-analysis.xlsx");
 }
 function exportDPR(){

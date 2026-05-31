@@ -1,0 +1,227 @@
+// Infinity Bid - BOQ Analyzer Database Schema
+// Production-ready schema for construction project analysis
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============ AUTH & USERS ============
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  password      String
+  company       String?
+  phone         String?
+  role          String    @default("contractor") // contractor, engineer, admin
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projects      Project[]
+  boqUploads    BoqUpload[]
+  dprReports    DprReport[]
+}
+
+// ============ PROJECTS ============
+
+model Project {
+  id            String    @id @default(uuid())
+  name          String
+  description   String?
+  location      String?
+  clientName    String?
+  estimatedCost Float?
+  startDate     DateTime?
+  endDate       DateTime?
+  status        String    @default("active") // active, completed, on_hold
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  boqUploads    BoqUpload[]
+  analysisResults AnalysisResult[]
+  dprReports    DprReport[]
+}
+
+// ============ BOQ UPLOADS ============
+
+model BoqUpload {
+  id            String    @id @default(uuid())
+  fileName      String
+  fileSize      Int
+  fileType      String    // xlsx, pdf, csv
+  filePath      String
+  status        String    @default("pending") // pending, processing, completed, failed
+  rawData       String?   // JSON stringified raw parsed data
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  boqItems      BoqItem[]
+  analysisResults AnalysisResult[]
+}
+
+// ============ BOQ LINE ITEMS ============
+
+model BoqItem {
+  id            String    @id @default(uuid())
+  slNo          Int?
+  itemCode      String?
+  description   String
+  unit          String    // sqm, cum, rmt, kg, nos, etc.
+  quantity      Float
+  rate          Float?
+  amount        Float?
+  category      String?   // earthwork, concrete, masonry, plumbing, etc.
+  subCategory   String?
+  chapter       String?   // DSR chapter reference
+  dsrItemCode   String?   // Mapped DSR item code
+  createdAt     DateTime  @default(now())
+
+  boqUploadId   String
+  boqUpload     BoqUpload @relation(fields: [boqUploadId], references: [id], onDelete: Cascade)
+
+  materialBreakdowns MaterialBreakdown[]
+}
+
+// ============ MATERIAL BREAKDOWN ============
+
+model MaterialBreakdown {
+  id            String    @id @default(uuid())
+  materialName  String
+  materialCode  String?
+  quantity      Float
+  unit          String
+  rate          Float?
+  amount        Float?
+  wastage       Float     @default(0) // percentage
+  totalWithWastage Float?
+  source        String    @default("cpwd") // cpwd, bihar, custom
+  createdAt     DateTime  @default(now())
+
+  boqItemId     String
+  boqItem       BoqItem   @relation(fields: [boqItemId], references: [id], onDelete: Cascade)
+}
+
+// ============ DSR RATES (Schedule of Rates) ============
+
+model DsrRate {
+  id            String    @id @default(uuid())
+  itemCode      String
+  description   String
+  unit          String
+  rate          Float
+  chapter       String    // Chapter name/number
+  subChapter    String?
+  category      String    // earthwork, concrete, masonry, etc.
+  source        String    // cpwd, bihar
+  year          Int       @default(2024)
+  state         String?   // For state-specific rates
+  laborRate     Float?
+  materialRate  Float?
+  equipmentRate Float?
+  overheadRate  Float?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([itemCode, source, year])
+  @@index([category, source])
+  @@index([chapter, source])
+}
+
+// ============ MATERIAL MASTER ============
+
+model Material {
+  id            String    @id @default(uuid())
+  name          String
+  code          String    @unique
+  unit          String
+  category      String    // cement, steel, sand, aggregate, brick, etc.
+  currentRate   Float?
+  source        String    @default("cpwd")
+  description   String?
+  specifications String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([category])
+  @@index([name])
+}
+
+// ============ ANALYSIS RESULTS ============
+
+model AnalysisResult {
+  id            String    @id @default(uuid())
+  type          String    // material_analysis, cost_estimation, quantity_summary
+  summary       String?   // JSON - high level summary
+  materialSummary String? // JSON - material-wise breakdown
+  costSummary   String?   // JSON - cost breakdown
+  quantitySummary String? // JSON - quantity breakdown by category
+  totalCost     Float?
+  totalMaterials Int?
+  confidence    Float?    // AI confidence score 0-1
+  processingTime Int?     // milliseconds
+  aiModel       String?   // which AI model was used
+  createdAt     DateTime  @default(now())
+
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boqUploadId   String
+  boqUpload     BoqUpload @relation(fields: [boqUploadId], references: [id], onDelete: Cascade)
+}
+
+// ============ FINANCIAL DPR (Daily Progress Report) ============
+
+model DprReport {
+  id            String    @id @default(uuid())
+  reportDate    DateTime
+  reportNo      String?
+  weather       String?
+  workingHours  Float?
+  
+  // Labor
+  laborSummary  String?   // JSON - labor breakdown
+  totalLaborCost Float?
+  
+  // Material
+  materialSummary String? // JSON - material consumed
+  totalMaterialCost Float?
+  
+  // Equipment
+  equipmentSummary String? // JSON - equipment usage
+  totalEquipmentCost Float?
+  
+  // Progress
+  workProgress  String?   // JSON - work items completed
+  physicalProgress Float? // percentage
+  financialProgress Float? // percentage
+  
+  // Totals
+  totalDayCost  Float?
+  cumulativeCost Float?
+  budgetVariance Float?   // positive = under budget
+  
+  remarks       String?
+  status        String    @default("draft") // draft, submitted, approved
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

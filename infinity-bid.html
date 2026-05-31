@@ -174,25 +174,84 @@ const BIHAR_RATES = [
   {itemCode:"B-14.2",description:"Aluminium sliding window with 5mm glass",unit:"sqm",rate:5650,chapter:"Doors & Windows",category:"woodwork",laborRate:1050,materialRate:4150,equipmentRate:450},
 ];
 const MAT_RATES = {
-  cpwd:{cement:380,sand:1850,fineSand:2100,agg20:1650,bricks:8.5,steel:68,water:150,tiles600:750,tiles300:420,paint:320,primer:180,putty:35,bitumen:65,cpvc20:85,pvc110:210,wire:22,conduit:35,door:4850,frame:520,alum:5800},
-  bihar:{cement:350,sand:1550,fineSand:1800,agg20:1400,bricks:7.0,steel:64,water:120,tiles600:620,tiles300:350,paint:280,primer:155,putty:30,bitumen:58,cpvc20:72,pvc110:180,wire:19,conduit:30,door:4200,frame:450,alum:5000}
+  cpwd:{cement:380,sand:1850,fineSand:2100,agg20:1650,bricks:8.5,steel:68,bindwire:78,water:150,earth:120,tiles600:750,tiles300:420,paint:320,primer:180,putty:35,bitumen:65,cpvc20:85,pvc110:210,fittings:60,wire:22,conduit:35,switchset:260,door:4850,frame:520,hardware:480,alum:5800},
+  bihar:{cement:350,sand:1550,fineSand:1800,agg20:1400,bricks:7.0,steel:64,bindwire:72,water:120,earth:95,tiles600:620,tiles300:350,paint:280,primer:155,putty:30,bitumen:58,cpvc20:72,pvc110:180,fittings:50,wire:19,conduit:30,switchset:220,door:4200,frame:450,hardware:400,alum:5000}
 };
 
-/* ---------- MATERIAL COMPOSITIONS (per unit of work) ---------- */
-const COMPOSITIONS = {
-  concrete:[{m:"Cement (OPC 43)",u:"bag",per:8.5,rk:"cement",w:3},{m:"Coarse Sand",u:"cum",per:0.45,rk:"sand",w:15},{m:"Stone Aggregate 20mm",u:"cum",per:0.9,rk:"agg20",w:5},{m:"Water",u:"kl",per:0.18,rk:"water",w:0}],
-  masonry:[{m:"First Class Bricks",u:"nos",per:500,rk:"bricks",w:5},{m:"Cement (OPC 43)",u:"bag",per:1.5,rk:"cement",w:3},{m:"Coarse Sand",u:"cum",per:0.3,rk:"sand",w:10}],
-  plastering:[{m:"Cement (OPC 43)",u:"bag",per:0.22,rk:"cement",w:5},{m:"Fine Sand",u:"cum",per:0.015,rk:"fineSand",w:10}],
-  flooring:[{m:"Vitrified Tiles 600x600",u:"sqm",per:1.05,rk:"tiles600",w:5},{m:"Cement (OPC 43)",u:"bag",per:0.16,rk:"cement",w:5},{m:"Coarse Sand",u:"cum",per:0.012,rk:"sand",w:10}],
-  painting:[{m:"Acrylic Emulsion Paint",u:"ltr",per:0.35,rk:"paint",w:8},{m:"Cement Primer",u:"ltr",per:0.12,rk:"primer",w:5},{m:"Wall Putty",u:"kg",per:0.8,rk:"putty",w:10}],
-  steel:[{m:"HYSD Steel Fe-500D",u:"kg",per:1.0,rk:"steel",w:3},{m:"Binding Wire",u:"kg",per:0.012,rk:"wire",w:5}],
-  plumbing:[{m:"CPVC Pipe 20mm",u:"rmt",per:1.0,rk:"cpvc20",w:5},{m:"Pipe Fittings",u:"nos",per:2,rk:"cpvc20",w:0}],
-  electrical:[{m:"PVC Conduit 20mm",u:"rmt",per:8,rk:"conduit",w:5},{m:"Copper Wire 1.5sqmm",u:"rmt",per:15,rk:"wire",w:8},{m:"Switch/Socket",u:"nos",per:1,rk:"conduit",w:0}],
-  earthwork:[{m:"Earth/Soil Excavated",u:"cum",per:1.3,rk:"water",w:0}],
-  waterproofing:[{m:"Bitumen Felt",u:"sqm",per:1.1,rk:"bitumen",w:10},{m:"Bitumen 80/100",u:"kg",per:1.5,rk:"bitumen",w:5},{m:"Primer",u:"ltr",per:0.2,rk:"primer",w:5}],
-  woodwork:[{m:"Door/Window Shutter",u:"sqm",per:1.0,rk:"door",w:0},{m:"Frame (Sal Wood)",u:"rmt",per:5.5,rk:"frame",w:10}],
-  misc:[]
-};
+/* ---------- MATERIAL CALCULATION ENGINE (grade / thickness / mix aware) ---------- */
+const round2=n=>Math.round(n*100)/100;
+// Concrete grade -> nominal mix ratio [fine, coarse]; M25+ use design-based quantities
+const GRADE_RATIO={M5:[5,10],"M7.5":[4,8],M10:[3,6],M15:[2,4],M20:[1.5,3]};
+const GRADE_DESIGN={M25:{cement:8.6,sand:0.41,agg:0.81},M30:{cement:9.6,sand:0.39,agg:0.77},M35:{cement:10.5,sand:0.37,agg:0.74},M40:{cement:11.2,sand:0.35,agg:0.71}};
+// Materials per 1 cum of concrete from nominal mix 1:a:b (dry factor 1.54, cement 1440 kg/m3, 50kg bag => 28.8 bags/cum)
+function concreteFromRatio(a,b){const DRY=1.54,sum=1+a+b;return{cement:(DRY/sum)*28.8,sand:DRY*a/sum,agg:DRY*b/sum};}
+function parseConcrete(d){
+  const r=d.match(/1\s*:\s*([\d.]+)\s*:\s*([\d.]+)/); // explicit mix e.g. 1:2:4
+  if(r)return concreteFromRatio(parseFloat(r[1]),parseFloat(r[2]));
+  const g=d.match(/\bm[\s-]?(5|7\.5|10|15|20|25|30|35|40)\b/); // grade e.g. M-20
+  if(g){const grade="M"+g[1];if(GRADE_DESIGN[grade])return GRADE_DESIGN[grade];if(GRADE_RATIO[grade]){const[a,b]=GRADE_RATIO[grade];return concreteFromRatio(a,b);}}
+  return concreteFromRatio(1.5,3); // default to M20
+}
+// Cement(bags)/sand(cum) per 1 cum of WET cement mortar for ratio 1:r (dry factor 1.3)
+function mortarPerCum(r){const DRY=1.3,c=DRY/(1+r);return{cement:c*28.8,sand:DRY*r/(1+r)};}
+function parseRatio(d,def){const m=d.match(/1\s*:\s*(\d+(?:\.\d+)?)(?!\s*:)/);return m?parseFloat(m[1]):def;}
+function parseThickness(d,def){const m=d.match(/(\d{1,3})\s*mm/);return m?parseFloat(m[1]):def;}
+
+// Returns array of {m:name, u:unit, qty, rk:rateKey, w:wastage%} for one BOQ work item
+function getMaterials(it){
+  const d=(it.description||"").toLowerCase(),q=it.quantity,o=[];
+  const add=(m,u,qty,rk,w)=>{if(qty>0)o.push({m,u,qty,rk,w});};
+  switch(it.category){
+    case "concrete":{const mix=parseConcrete(d);
+      add("Cement (OPC 43)","bag",q*mix.cement,"cement",2);
+      add("Coarse Sand","cum",q*mix.sand,"sand",10);
+      add("Stone Aggregate 20mm","cum",q*mix.agg,"agg20",5);
+      add("Water","kl",q*0.16,"water",0);break;}
+    case "masonry":{const r=parseRatio(d,6),mp=mortarPerCum(r),half=/half brick|115|on edge/.test(d);
+      if(it.unit==="sqm"||half){const mv=0.03; // half-brick wall per sqm
+        add("First Class Bricks","nos",q*60,"bricks",5);
+        add("Cement (OPC 43)","bag",q*mv*mp.cement,"cement",3);
+        add("Coarse Sand","cum",q*mv*mp.sand,"sand",10);
+      }else{const mv=0.23; // mortar fraction per cum brickwork
+        add("First Class Bricks","nos",q*500,"bricks",5);
+        add("Cement (OPC 43)","bag",q*mv*mp.cement,"cement",3);
+        add("Coarse Sand","cum",q*mv*mp.sand,"sand",10);}break;}
+    case "plastering":{const t=parseThickness(d,12),r=parseRatio(d,6),mp=mortarPerCum(r),v=t/1000;
+      add("Cement (OPC 43)","bag",q*v*mp.cement,"cement",5);
+      add("Fine Sand","cum",q*v*mp.sand,"fineSand",10);break;}
+    case "flooring":{const cer=/ceramic|300\s*x\s*300|300x300/.test(d),mp=mortarPerCum(4),bed=0.02;
+      add(cer?"Ceramic Tiles 300x300":"Vitrified Tiles 600x600","sqm",q*1.05,cer?"tiles300":"tiles600",5);
+      add("Cement (OPC 43)","bag",q*bed*mp.cement,"cement",5);
+      add("Coarse Sand","cum",q*bed*mp.sand,"sand",10);break;}
+    case "steel":add("HYSD Steel Fe-500D","kg",q*1.0,"steel",3);add("Binding Wire","kg",q*0.01,"bindwire",5);break;
+    case "painting":{
+      if(/distemper/.test(d))add("Acrylic Distemper","ltr",q*0.18,"paint",8);
+      else if(/enamel/.test(d))add("Synthetic Enamel Paint","ltr",q*0.13,"paint",8);
+      else add("Acrylic Emulsion Paint","ltr",q*0.18,"paint",8);
+      add("Cement Primer","ltr",q*0.10,"primer",5);
+      add("Wall Putty","kg",q*0.45,"putty",10);break;}
+    case "plumbing":{
+      if(/110|drain|soil|waste/.test(d))add("PVC Pipe 110mm","rmt",q*1.0,"pvc110",5);
+      else add("CPVC Pipe 20mm","rmt",q*1.0,"cpvc20",5);
+      add("Pipe Fittings","nos",q*0.4,"fittings",0);break;}
+    case "electrical":
+      add("PVC Conduit 20mm","rmt",q*8,"conduit",5);
+      add("Copper Wire 1.5sqmm","rmt",q*15,"wire",8);
+      add("Switch/Socket & Box","nos",q*1,"switchset",0);break;
+    case "earthwork":{ // excavation consumes no material; only filling does
+      if(/sand/.test(d))add("Filling Sand","cum",q*1.0,"sand",5);
+      else if(/fill/.test(d))add("Earth / Murrum Filling","cum",q*1.0,"earth",0);break;}
+    case "waterproofing":
+      add("Bitumen Felt","sqm",q*1.1,"bitumen",10);
+      add("Bitumen 80/100","kg",q*1.5,"bitumen",5);
+      add("Primer","ltr",q*0.2,"primer",5);break;
+    case "woodwork":{
+      if(/window|aluminium|aluminum/.test(d)){add("Aluminium Window Assembly","sqm",q*1.0,"alum",2);}
+      else{add("Flush Door Shutter","sqm",q*1.0,"door",0);add("Door Frame (Sal Wood)","rmt",q*5.5,"frame",10);}
+      add("Hardware Set","set",q*1,"hardware",0);break;}
+  }
+  return o;
+}
 
 const CAT_KEYWORDS = {
   earthwork:["earth","excavation","filling","embankment","cutting","grading","trench"],
@@ -213,7 +272,15 @@ const CAT_COLORS={concrete:"#3b82f6",masonry:"#ef4444",steel:"#475569",plasterin
 /* ---------- UTILITIES ---------- */
 const fmtINR=n=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(n||0);
 const fmtNum=n=>new Intl.NumberFormat("en-IN",{maximumFractionDigits:2}).format(n||0);
-function detectCategory(desc){const l=(desc||"").toLowerCase();for(const[c,ks]of Object.entries(CAT_KEYWORDS)){if(ks.some(k=>l.includes(k)))return c;}return "misc";}
+function detectCategory(desc,unit){
+  const l=(desc||"").toLowerCase(),u=(unit||"").toLowerCase();
+  // Steel is measured by weight (kg/MT/quintal) — disambiguate from "RCC ... reinforcement"
+  if(/\b(hysd|tmt|rebar)\b/.test(l)||(/(reinforc|steel)/.test(l)&&(u==="kg"||u==="mt"||u==="quintal")))return "steel";
+  // Electrical points/wiring — "point" unit & "wiring"/"conductor" override generic "pvc" pipe match
+  if(u==="point"||/\bwiring\b|conductor|light point|fan point|power point/.test(l))return "electrical";
+  for(const[c,ks]of Object.entries(CAT_KEYWORDS)){if(ks.some(k=>l.includes(k)))return c;}
+  return "misc";
+}
 function similarity(a,b){const w1=a.split(/\s+/).filter(w=>w.length>2),w2=b.split(/\s+/).filter(w=>w.length>2);if(!w1.length||!w2.length)return 0;let m=0;for(const w of w1){if(w2.some(x=>x.includes(w)||w.includes(x)))m++;}return m/Math.max(w1.length,w2.length);}
 
 /* ---------- BOQ PARSER ---------- */
@@ -231,7 +298,7 @@ function parseWorkbook(wb){
     const amt=parseFloat(String(r[map.amount]||"0"))||qty*rate;
     if(qty===0&&rate===0&&amt===0)continue;
     const unit=normUnit(String(r[map.unit]||"").trim());
-    items.push({slNo:parseInt(String(r[map.slNo]||""))||items.length+1,itemCode:String(r[map.itemCode]||"").trim(),description:desc,unit:unit||"nos",quantity:qty,rate:rate||null,amount:amt||null,category:detectCategory(desc)});
+    items.push({slNo:parseInt(String(r[map.slNo]||""))||items.length+1,itemCode:String(r[map.itemCode]||"").trim(),description:desc,unit:unit||"nos",quantity:qty,rate:rate||null,amount:amt||null,category:detectCategory(desc,unit)});
     total+=amt;
   }
   return {items,metadata:{totalItems:items.length,totalAmount:total,categories:[...new Set(items.map(i=>i.category))]}};
@@ -244,22 +311,38 @@ function normUnit(u){const l=u.toLowerCase().replace(/\./g,"").replace(/\s/g,"")
 function analyze(items,source){
   const rates=source==="bihar"?BIHAR_RATES:CPWD_RATES;
   const mr=MAT_RATES[source];
-  const mapped=items.map(it=>({...it,dsr:bestMatch(it,rates)}));
+  let matched=0;
+  // Map each item to its best DSR match; recover category for unclassified items
+  const mapped=items.map(it=>{
+    const dsr=bestMatch(it,rates);
+    let cat=it.category;
+    if((!cat||cat==="misc")&&dsr)cat=dsr.category;
+    if(dsr)matched++;
+    return {...it,category:cat,dsr};
+  });
   const all=[];
   for(const it of mapped){
-    const comps=COMPOSITIONS[it.category]||[];
-    for(const c of comps){
-      const base=it.quantity*c.per;const wq=base*(c.w/100);const tot=base+wq;const rate=mr[c.rk]||50;
-      all.push({materialName:c.m,quantity:Math.round(base*100)/100,unit:c.u,rate,wastagePercent:c.w,totalWithWastage:Math.round(tot*100)/100,amount:Math.round(tot*rate*100)/100,category:it.category,source});
+    for(const c of getMaterials(it)){
+      const base=c.qty,w=c.w||0,tot=base*(1+w/100),rate=mr[c.rk]||0;
+      all.push({materialName:c.m,quantity:round2(base),unit:c.u,rate,wastagePercent:w,totalWithWastage:round2(tot),amount:round2(tot*rate),category:it.category,source});
     }
   }
   const mats=consolidate(all);
   const catBd=categoryBreakdown(mats);
   const matCost=mats.reduce((s,m)=>s+(m.amount||0),0);
-  let laborCost=0;for(const it of mapped){if(it.dsr&&it.dsr.laborRate)laborCost+=it.quantity*it.dsr.laborRate;else laborCost+=(it.amount||it.quantity*(it.rate||0))*0.25;}
-  const equipCost=matCost*0.08;const overhead=(matCost+laborCost)*0.12;
+  // Labor from DSR labor component when unit matches, else 25% of item value
+  let laborCost=0;
+  for(const it of mapped){
+    if(it.dsr&&it.dsr.laborRate&&it.dsr.unit===it.unit)laborCost+=it.quantity*it.dsr.laborRate;
+    else laborCost+=(it.amount||it.quantity*(it.rate||0))*0.25;
+  }
+  const equipCost=matCost*0.08;
+  const overhead=(matCost+laborCost)*0.12;
   const estCost=matCost+laborCost+equipCost+overhead;
-  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,summary:{totalItems:items.length,totalMaterials:mats.length,estimatedCost:estCost,laborCost:Math.round(laborCost),materialCost:Math.round(matCost),equipmentCost:Math.round(equipCost),overheadCost:Math.round(overhead),confidence:0.85},source};
+  const boqStated=items.reduce((s,i)=>s+(i.amount||0),0);
+  const coverage=items.length?matched/items.length:0;
+  const confidence=Math.round((0.6+0.37*coverage)*100)/100;
+  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,summary:{totalItems:items.length,totalMaterials:mats.length,estimatedCost:estCost,laborCost:Math.round(laborCost),materialCost:Math.round(matCost),equipmentCost:Math.round(equipCost),overheadCost:Math.round(overhead),boqStatedCost:Math.round(boqStated),confidence},source};
 }
 function bestMatch(it,rates){let best=null,bs=0;const d=it.description.toLowerCase();for(const r of rates){const s=similarity(d,r.description.toLowerCase());if(s>bs&&s>0.3){bs=s;best=r;}}if(!best&&it.category)best=rates.find(r=>r.category===it.category)||null;return best;}
 function consolidate(arr){const m=new Map();for(const x of arr){const k=x.materialName+"|"+x.unit;if(m.has(k)){const e=m.get(k);e.quantity+=x.quantity;e.totalWithWastage+=x.totalWithWastage;e.amount+=x.amount;}else m.set(k,{...x});}return [...m.values()].map(x=>({...x,quantity:Math.round(x.quantity*100)/100,totalWithWastage:Math.round(x.totalWithWastage*100)/100,amount:Math.round(x.amount*100)/100})).sort((a,b)=>b.amount-a.amount);}
@@ -421,7 +504,8 @@ function vAnalysis(){
       ${costBar("Labor Cost",s.laborCost,s.estimatedCost,"#22c55e")}
       ${costBar("Equipment Cost",s.equipmentCost,s.estimatedCost,"#eab308")}
       ${costBar("Overhead & Profit",s.overheadCost,s.estimatedCost,"#a855f7")}
-      <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><span>Total</span><span>${fmtINR(s.estimatedCost)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><span>DSR Estimated Total</span><span>${fmtINR(s.estimatedCost)}</span></div>
+      ${s.boqStatedCost?`<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted-fg);margin-top:8px"><span>BOQ Stated Value</span><span>${fmtINR(s.boqStatedCost)}</span></div><div style="display:flex;justify-content:space-between;font-size:13px;margin-top:4px"><span>Variance vs BOQ</span><span style="color:${s.estimatedCost<=s.boqStatedCost?'#16a34a':'#dc2626'}">${((s.estimatedCost-s.boqStatedCost)/s.boqStatedCost*100).toFixed(1)}% ${s.estimatedCost<=s.boqStatedCost?'under':'over'}</span></div>`:""}
     </div>
     <div class="card"><h3>📊 Category-wise Breakdown</h3><div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
     ${r.categoryBreakdown.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:9px;background:var(--muted)"><div style="display:flex;align-items:center;gap:10px"><span class="dot" style="background:${CAT_COLORS[c.category]||'#94a3b8'}"></span><div><div style="font-size:13px;font-weight:600;text-transform:capitalize">${c.category}</div><div style="font-size:11px;color:var(--muted-fg)">${c.materialCount} materials</div></div></div><div style="text-align:right"><div style="font-size:13px;font-weight:600">${fmtINR(c.totalCost)}</div><div style="font-size:11px;color:var(--muted-fg)">${c.percentage}%</div></div></div>`).join("")}

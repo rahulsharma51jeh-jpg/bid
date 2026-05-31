@@ -108,11 +108,11 @@
       <button data-panel="tenders" onclick="nav('tenders')">📁 Tender History</button>
     </nav>
     <div style="margin-top:24px;padding:14px;border-radius:12px;background:linear-gradient(135deg,#eff6ff,#eef2ff);border:1px solid #dbeafe">
-      <div style="font-size:12px;font-weight:700;color:#1d4ed8">DSR Trained Model</div>
-      <div style="font-size:11px;color:#3b82f6;margin-top:4px">CPWD 2024 + Bihar 2024</div>
+      <div style="font-size:12px;font-weight:700;color:#1d4ed8">AI Estimation Engine</div>
+      <div style="font-size:11px;color:#3b82f6;margin-top:4px">Rule-based takeoff + anomaly detection</div>
       <div style="margin-top:8px;display:flex;gap:6px">
-        <span style="font-size:10px;padding:2px 7px;background:#dbeafe;color:#1d4ed8;border-radius:5px">CPWD</span>
-        <span style="font-size:10px;padding:2px 7px;background:#dcfce7;color:#15803d;border-radius:5px">Bihar</span>
+        <span style="font-size:10px;padding:2px 7px;background:#dbeafe;color:#1d4ed8;border-radius:5px">v2.0</span>
+        <span style="font-size:10px;padding:2px 7px;background:#dcfce7;color:#15803d;border-radius:5px">IS-code</span>
       </div>
     </div>
   </aside>
@@ -724,16 +724,11 @@ function vUpload(){
   return `<h2>Upload Bill of Quantity</h2><p class="sub">Upload your BOQ file (Excel/CSV) and our AI will analyze materials, quantities & costs</p>
   <div style="max-width:760px">
     <div style="margin-bottom:18px"><label>Project Name</label><input id="projName" placeholder="e.g., Residential Building - Phase 1" value="${STATE.projectName}" oninput="STATE.projectName=this.value"/></div>
-    <label>DSR Rate Source</label>
-    <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:18px">
-      <div class="src-card ${STATE.source==='cpwd'?'sel-cpwd':''}" onclick="STATE.source='cpwd';render()"><div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-weight:800;color:#1d4ed8;font-size:12px">CPWD</div><div><div style="font-weight:600;font-size:14px">CPWD DSR 2024</div><div style="font-size:12px;color:var(--muted-fg)">Central PWD - Delhi Rates</div></div></div>
-      <div class="src-card ${STATE.source==='bihar'?'sel-bihar':''}" onclick="STATE.source='bihar';render()"><div style="width:42px;height:42px;border-radius:10px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-weight:800;color:#15803d;font-size:12px">Bihar</div><div><div style="font-weight:600;font-size:14px">Bihar DSR 2024</div><div style="font-size:12px;color:var(--muted-fg)">Bihar State PWD Rates</div></div></div>
-    </div>
-    <div style="margin-bottom:18px"><label>Or pick any State SOR / DSR (${Object.keys(STATE_SOR).length} states)</label>
+    <div style="margin-bottom:18px"><label>Schedule of Rates (for cost benchmarking, ${Object.keys(STATE_SOR).length} states)</label>
       <select onchange="STATE.source=this.value;render()">
         ${Object.entries(STATE_SOR).map(([k,m])=>`<option value="${k}" ${STATE.source===k?'selected':''}>${m.name}${m.native?' ✓ native':' · index '+m.index}</option>`).join("")}
       </select>
-      <div style="font-size:12px;color:var(--muted-fg);margin-top:6px">Selected: <b>${STATE_SOR[STATE.source].name}</b> — ${STATE_SOR[STATE.source].native?"full native rate dataset":"derived from CPWD base × "+STATE_SOR[STATE.source].index+" regional cost index"}</div>
+      <div style="font-size:12px;color:var(--muted-fg);margin-top:6px">Selected: <b>${STATE_SOR[STATE.source].name}</b>. For a priced BOQ, your own rates are used as the authoritative value — the SOR is only a benchmark.</div>
     </div>
     <div class="dropzone ${STATE.file?'has':''}" id="dropzone">
       ${STATE.file?`<div style="font-size:38px">✅</div><div style="font-weight:600;color:#15803d;margin-top:8px">${STATE.file.name}</div><div style="font-size:13px;color:var(--muted-fg);margin-top:4px">${(STATE.file.size/1024).toFixed(1)} KB — Ready to analyze</div><button class="btn btn-ghost" style="margin-top:10px;font-size:12px" onclick="event.stopPropagation();STATE.file=null;render()">✕ Remove file</button>`

@@ -146,6 +146,48 @@ const CPWD_RATES = [
   {itemCode:"13.1",description:"Waterproofing treatment on roof with bitumen felt",unit:"sqm",rate:485,chapter:"Waterproofing",category:"waterproofing",laborRate:150,materialRate:295,equipmentRate:40},
   {itemCode:"14.1",description:"Flush door shutter 35mm thick (commercial) with hardware",unit:"sqm",rate:4850,chapter:"Doors & Windows",category:"woodwork",laborRate:850,materialRate:3700,equipmentRate:300},
   {itemCode:"14.2",description:"Aluminium sliding window with glass",unit:"sqm",rate:6500,chapter:"Doors & Windows",category:"woodwork",laborRate:1200,materialRate:4800,equipmentRate:500},
+  {itemCode:"1.2",description:"Earth work in excavation in hard/dense soil (depth up to 1.5m)",unit:"cum",rate:352,chapter:"Earthwork",category:"earthwork",laborRate:290,materialRate:0,equipmentRate:62},
+  {itemCode:"1.4",description:"Earth filling in plinth with available excavated earth, rammed in 20cm layers",unit:"cum",rate:245,chapter:"Earthwork",category:"earthwork",laborRate:195,materialRate:0,equipmentRate:50},
+  {itemCode:"1.5",description:"Disposal of surplus excavated earth beyond 50m lead",unit:"cum",rate:165,chapter:"Earthwork",category:"earthwork",laborRate:60,materialRate:0,equipmentRate:105},
+  {itemCode:"2.1",description:"Anti-termite treatment (pre-construction) to soil",unit:"sqm",rate:95,chapter:"Earthwork",category:"earthwork",laborRate:35,materialRate:55,equipmentRate:5},
+  {itemCode:"4.7",description:"Providing and laying RCC M-35 grade in structural members",unit:"cum",rate:11200,chapter:"Concrete Work",category:"concrete",laborRate:2150,materialRate:8200,equipmentRate:850},
+  {itemCode:"4.8",description:"Providing and laying RMC (Ready Mix Concrete) M-25 by pump",unit:"cum",rate:8650,chapter:"Concrete Work",category:"concrete",laborRate:900,materialRate:7100,equipmentRate:650},
+  {itemCode:"4.9",description:"Damp proof course 50mm thick CC 1:2:4 with waterproofing compound",unit:"sqm",rate:485,chapter:"Concrete Work",category:"concrete",laborRate:165,materialRate:290,equipmentRate:30},
+  {itemCode:"4.10",description:"PCC 1:5:10 (40mm aggregate) levelling course below foundation",unit:"cum",rate:4980,chapter:"Concrete Work",category:"concrete",laborRate:1050,materialRate:3580,equipmentRate:350},
+  {itemCode:"7.1",description:"Centering and shuttering with plywood for suspended floors, roofs, beams",unit:"sqm",rate:625,chapter:"Formwork",category:"formwork",laborRate:340,materialRate:255,equipmentRate:30},
+  {itemCode:"7.2",description:"Centering and shuttering for columns, pillars, piers",unit:"sqm",rate:545,chapter:"Formwork",category:"formwork",laborRate:300,materialRate:220,equipmentRate:25},
+  {itemCode:"5.4",description:"230mm thick AAC block masonry in cement mortar 1:6",unit:"cum",rate:6450,chapter:"Block Work",category:"masonry",laborRate:1650,materialRate:4550,equipmentRate:250},
+  {itemCode:"5.5",description:"100mm thick AAC block partition wall in CM 1:4",unit:"sqm",rate:825,chapter:"Block Work",category:"masonry",laborRate:280,materialRate:495,equipmentRate:50},
+  {itemCode:"5.6",description:"Random rubble stone masonry in cement mortar 1:6 in foundation",unit:"cum",rate:5850,chapter:"Stone Work",category:"masonry",laborRate:2000,materialRate:3550,equipmentRate:300},
+  {itemCode:"9.3",description:"Kota stone flooring 25mm thick over 20mm cement mortar bed",unit:"sqm",rate:1180,chapter:"Flooring",category:"flooring",laborRate:320,materialRate:790,equipmentRate:70},
+  {itemCode:"9.4",description:"Polished granite stone flooring 18mm thick on cement mortar",unit:"sqm",rate:2850,chapter:"Flooring",category:"flooring",laborRate:520,materialRate:2180,equipmentRate:150},
+  {itemCode:"9.5",description:"Marble stone flooring (Makrana) 20mm thick on cement mortar",unit:"sqm",rate:3250,chapter:"Flooring",category:"flooring",laborRate:560,materialRate:2520,equipmentRate:170},
+  {itemCode:"9.6",description:"Cement concrete flooring 1:2:4 finished with floor hardener 40mm",unit:"sqm",rate:585,chapter:"Flooring",category:"flooring",laborRate:185,materialRate:370,equipmentRate:30},
+  {itemCode:"9.7",description:"Anti-skid ceramic tile flooring 300x300mm in cement mortar",unit:"sqm",rate:985,chapter:"Flooring",category:"flooring",laborRate:300,materialRate:625,equipmentRate:60},
+  {itemCode:"8.4",description:"Neeru/white cement punning finish 2mm over plaster",unit:"sqm",rate:85,chapter:"Plastering",category:"plastering",laborRate:55,materialRate:25,equipmentRate:5},
+  {itemCode:"8.5",description:"Sand faced cement plaster 18mm two coats on external walls",unit:"sqm",rate:345,chapter:"Plastering",category:"plastering",laborRate:195,materialRate:130,equipmentRate:20},
+  {itemCode:"10.1",description:"Distempering with dry/acrylic distemper two coats on walls",unit:"sqm",rate:78,chapter:"Painting",category:"painting",laborRate:38,materialRate:35,equipmentRate:5},
+  {itemCode:"10.4",description:"Exterior weatherproof emulsion paint (Apex) two coats",unit:"sqm",rate:165,chapter:"Painting",category:"painting",laborRate:55,materialRate:100,equipmentRate:10},
+  {itemCode:"10.5",description:"Wall putty (acrylic) two coats over plastered surface",unit:"sqm",rate:95,chapter:"Painting",category:"painting",laborRate:45,materialRate:42,equipmentRate:8},
+  {itemCode:"11.3",description:"CPVC pipe 25mm dia concealed with fittings for water supply",unit:"rmt",rate:245,chapter:"Plumbing",category:"plumbing",laborRate:85,materialRate:145,equipmentRate:15},
+  {itemCode:"11.4",description:"PVC pipe 75mm dia for rainwater/waste",unit:"rmt",rate:285,chapter:"Plumbing",category:"plumbing",laborRate:90,materialRate:175,equipmentRate:20},
+  {itemCode:"15.1",description:"Providing and fixing white vitreous china wash basin with fittings",unit:"nos",rate:3850,chapter:"Sanitary",category:"sanitary",laborRate:650,materialRate:3000,equipmentRate:200},
+  {itemCode:"15.2",description:"Providing and fixing white vitreous china EWC (water closet) with cistern",unit:"nos",rate:7250,chapter:"Sanitary",category:"sanitary",laborRate:950,materialRate:6000,equipmentRate:300},
+  {itemCode:"15.3",description:"Providing and fixing CP brass pillar cock/tap",unit:"nos",rate:985,chapter:"Sanitary",category:"sanitary",laborRate:185,materialRate:760,equipmentRate:40},
+  {itemCode:"15.4",description:"Stainless steel kitchen sink with drain board",unit:"nos",rate:4250,chapter:"Sanitary",category:"sanitary",laborRate:550,materialRate:3500,equipmentRate:200},
+  {itemCode:"16.1",description:"Gypsum board false ceiling on GI framework",unit:"sqm",rate:985,chapter:"False Ceiling",category:"falseceiling",laborRate:320,materialRate:615,equipmentRate:50},
+  {itemCode:"16.2",description:"Grid type mineral fibre false ceiling 600x600mm",unit:"sqm",rate:865,chapter:"False Ceiling",category:"falseceiling",laborRate:265,materialRate:555,equipmentRate:45},
+  {itemCode:"12.3",description:"Main distribution board (MCB) 8-way with MCBs",unit:"nos",rate:6850,chapter:"Electrical",category:"electrical",laborRate:850,materialRate:5700,equipmentRate:300},
+  {itemCode:"12.4",description:"PVC insulated copper armoured cable 4 core 16 sqmm laid",unit:"rmt",rate:485,chapter:"Electrical",category:"electrical",laborRate:120,materialRate:330,equipmentRate:35},
+  {itemCode:"17.1",description:"Structural steel work in trusses, purlins fabricated and erected",unit:"kg",rate:128,chapter:"Steel Work",category:"steel",laborRate:28,materialRate:92,equipmentRate:8},
+  {itemCode:"18.1",description:"Granular sub-base (GSB) for road, compacted",unit:"cum",rate:1850,chapter:"Roads",category:"roadwork",laborRate:280,materialRate:1370,equipmentRate:200},
+  {itemCode:"18.2",description:"Dense bituminous macadam (DBM) 50mm compacted",unit:"sqm",rate:485,chapter:"Roads",category:"roadwork",laborRate:75,materialRate:330,equipmentRate:80},
+  {itemCode:"18.3",description:"Bituminous concrete (BC) wearing course 40mm",unit:"sqm",rate:425,chapter:"Roads",category:"roadwork",laborRate:65,materialRate:295,equipmentRate:65},
+  {itemCode:"13.2",description:"Integral crystalline waterproofing to RCC water tanks",unit:"sqm",rate:425,chapter:"Waterproofing",category:"waterproofing",laborRate:135,materialRate:255,equipmentRate:35},
+  {itemCode:"13.3",description:"APP modified bitumen membrane 3mm waterproofing on terrace",unit:"sqm",rate:565,chapter:"Waterproofing",category:"waterproofing",laborRate:165,materialRate:360,equipmentRate:40},
+  {itemCode:"14.3",description:"Salwood/hardwood panelled door shutter 40mm with frame",unit:"sqm",rate:6850,chapter:"Doors & Windows",category:"woodwork",laborRate:1100,materialRate:5350,equipmentRate:400},
+  {itemCode:"14.4",description:"UPVC casement window with glazing and hardware",unit:"sqm",rate:5450,chapter:"Doors & Windows",category:"woodwork",laborRate:950,materialRate:4100,equipmentRate:400},
+  {itemCode:"14.5",description:"MS grill/railing fabricated and fixed to windows/stairs",unit:"kg",rate:135,chapter:"Doors & Windows",category:"steel",laborRate:35,materialRate:90,equipmentRate:10},
 ];
 const BIHAR_RATES = [
   {itemCode:"B-1.1",description:"Earth work in excavation in ordinary soil (depth up to 1.5m)",unit:"cum",rate:225,chapter:"Earthwork",category:"earthwork",laborRate:185,materialRate:0,equipmentRate:40},
@@ -172,10 +214,51 @@ const BIHAR_RATES = [
   {itemCode:"B-13.1",description:"Waterproofing treatment on roof with bitumen felt",unit:"sqm",rate:420,chapter:"Waterproofing",category:"waterproofing",laborRate:130,materialRate:255,equipmentRate:35},
   {itemCode:"B-14.1",description:"Flush door shutter 35mm thick commercial grade",unit:"sqm",rate:4200,chapter:"Doors & Windows",category:"woodwork",laborRate:720,materialRate:3200,equipmentRate:280},
   {itemCode:"B-14.2",description:"Aluminium sliding window with 5mm glass",unit:"sqm",rate:5650,chapter:"Doors & Windows",category:"woodwork",laborRate:1050,materialRate:4150,equipmentRate:450},
+  {itemCode:"B-1.2",description:"Earth work in excavation in hard/dense soil (depth up to 1.5m)",unit:"cum",rate:295,chapter:"Earthwork",category:"earthwork",laborRate:245,materialRate:0,equipmentRate:50},
+  {itemCode:"B-1.4",description:"Earth filling in plinth with excavated earth, rammed in layers",unit:"cum",rate:198,chapter:"Earthwork",category:"earthwork",laborRate:158,materialRate:0,equipmentRate:40},
+  {itemCode:"B-1.5",description:"Disposal of surplus earth beyond 50m lead",unit:"cum",rate:135,chapter:"Earthwork",category:"earthwork",laborRate:50,materialRate:0,equipmentRate:85},
+  {itemCode:"B-2.1",description:"Anti-termite treatment (pre-construction) to soil",unit:"sqm",rate:78,chapter:"Earthwork",category:"earthwork",laborRate:30,materialRate:43,equipmentRate:5},
+  {itemCode:"B-4.7",description:"Providing and laying RCC M-35 grade in structural members",unit:"cum",rate:9850,chapter:"Concrete Work",category:"concrete",laborRate:1900,materialRate:7150,equipmentRate:800},
+  {itemCode:"B-4.8",description:"Providing and laying RMC M-25 by pump",unit:"cum",rate:7650,chapter:"Concrete Work",category:"concrete",laborRate:780,materialRate:6270,equipmentRate:600},
+  {itemCode:"B-4.9",description:"Damp proof course 50mm CC 1:2:4 with waterproofing compound",unit:"sqm",rate:415,chapter:"Concrete Work",category:"concrete",laborRate:140,materialRate:250,equipmentRate:25},
+  {itemCode:"B-4.10",description:"PCC 1:5:10 levelling course below foundation",unit:"cum",rate:4280,chapter:"Concrete Work",category:"concrete",laborRate:900,materialRate:3080,equipmentRate:300},
+  {itemCode:"B-7.1",description:"Centering and shuttering with plywood for slabs, beams, roofs",unit:"sqm",rate:545,chapter:"Formwork",category:"formwork",laborRate:300,materialRate:220,equipmentRate:25},
+  {itemCode:"B-7.2",description:"Centering and shuttering for columns and piers",unit:"sqm",rate:475,chapter:"Formwork",category:"formwork",laborRate:265,materialRate:190,equipmentRate:20},
+  {itemCode:"B-5.4",description:"230mm thick AAC block masonry in cement mortar 1:6",unit:"cum",rate:5650,chapter:"Block Work",category:"masonry",laborRate:1450,materialRate:3950,equipmentRate:250},
+  {itemCode:"B-5.5",description:"100mm thick AAC block partition wall in CM 1:4",unit:"sqm",rate:725,chapter:"Block Work",category:"masonry",laborRate:245,materialRate:435,equipmentRate:45},
+  {itemCode:"B-5.6",description:"Random rubble stone masonry in CM 1:6 in foundation",unit:"cum",rate:5050,chapter:"Stone Work",category:"masonry",laborRate:1750,materialRate:3050,equipmentRate:250},
+  {itemCode:"B-9.3",description:"Kota stone flooring 25mm thick over cement mortar bed",unit:"sqm",rate:1020,chapter:"Flooring",category:"flooring",laborRate:280,materialRate:680,equipmentRate:60},
+  {itemCode:"B-9.4",description:"Polished granite stone flooring 18mm thick on cement mortar",unit:"sqm",rate:2480,chapter:"Flooring",category:"flooring",laborRate:450,materialRate:1900,equipmentRate:130},
+  {itemCode:"B-9.5",description:"Marble stone flooring 20mm thick on cement mortar",unit:"sqm",rate:2850,chapter:"Flooring",category:"flooring",laborRate:490,materialRate:2210,equipmentRate:150},
+  {itemCode:"B-9.6",description:"Cement concrete flooring 1:2:4 with floor hardener 40mm",unit:"sqm",rate:510,chapter:"Flooring",category:"flooring",laborRate:160,materialRate:325,equipmentRate:25},
+  {itemCode:"B-8.4",description:"White cement punning/neeru finish 2mm over plaster",unit:"sqm",rate:72,chapter:"Plastering",category:"plastering",laborRate:46,materialRate:21,equipmentRate:5},
+  {itemCode:"B-8.5",description:"Sand faced cement plaster 18mm two coats external walls",unit:"sqm",rate:298,chapter:"Plastering",category:"plastering",laborRate:170,materialRate:110,equipmentRate:18},
+  {itemCode:"B-10.1",description:"Distempering with acrylic distemper two coats on walls",unit:"sqm",rate:64,chapter:"Painting",category:"painting",laborRate:32,materialRate:28,equipmentRate:4},
+  {itemCode:"B-10.4",description:"Exterior weatherproof emulsion (Apex) two coats",unit:"sqm",rate:142,chapter:"Painting",category:"painting",laborRate:48,materialRate:86,equipmentRate:8},
+  {itemCode:"B-10.5",description:"Acrylic wall putty two coats over plaster",unit:"sqm",rate:82,chapter:"Painting",category:"painting",laborRate:38,materialRate:37,equipmentRate:7},
+  {itemCode:"B-11.3",description:"CPVC pipe 25mm concealed with fittings for water supply",unit:"rmt",rate:210,chapter:"Plumbing",category:"plumbing",laborRate:72,materialRate:125,equipmentRate:13},
+  {itemCode:"B-11.4",description:"PVC pipe 75mm dia for rainwater/waste",unit:"rmt",rate:245,chapter:"Plumbing",category:"plumbing",laborRate:78,materialRate:150,equipmentRate:17},
+  {itemCode:"B-15.1",description:"White vitreous china wash basin with CP fittings",unit:"nos",rate:3250,chapter:"Sanitary",category:"sanitary",laborRate:550,materialRate:2520,equipmentRate:180},
+  {itemCode:"B-15.2",description:"White vitreous china EWC (water closet) with cistern",unit:"nos",rate:6250,chapter:"Sanitary",category:"sanitary",laborRate:820,materialRate:5180,equipmentRate:250},
+  {itemCode:"B-15.3",description:"CP brass pillar cock/tap",unit:"nos",rate:825,chapter:"Sanitary",category:"sanitary",laborRate:155,materialRate:640,equipmentRate:30},
+  {itemCode:"B-15.4",description:"Stainless steel kitchen sink with drain board",unit:"nos",rate:3650,chapter:"Sanitary",category:"sanitary",laborRate:470,materialRate:3000,equipmentRate:180},
+  {itemCode:"B-16.1",description:"Gypsum board false ceiling on GI framework",unit:"sqm",rate:865,chapter:"False Ceiling",category:"falseceiling",laborRate:280,materialRate:540,equipmentRate:45},
+  {itemCode:"B-16.2",description:"Grid type mineral fibre false ceiling 600x600mm",unit:"sqm",rate:765,chapter:"False Ceiling",category:"falseceiling",laborRate:235,materialRate:490,equipmentRate:40},
+  {itemCode:"B-12.3",description:"Distribution board (MCB) 8-way with MCBs",unit:"nos",rate:5850,chapter:"Electrical",category:"electrical",laborRate:720,materialRate:4880,equipmentRate:250},
+  {itemCode:"B-12.4",description:"Copper armoured cable 4 core 16 sqmm laid",unit:"rmt",rate:420,chapter:"Electrical",category:"electrical",laborRate:105,materialRate:285,equipmentRate:30},
+  {itemCode:"B-17.1",description:"Structural steel trusses/purlins fabricated and erected",unit:"kg",rate:112,chapter:"Steel Work",category:"steel",laborRate:24,materialRate:81,equipmentRate:7},
+  {itemCode:"B-18.1",description:"Granular sub-base (GSB) for road, compacted",unit:"cum",rate:1580,chapter:"Roads",category:"roadwork",laborRate:240,materialRate:1170,equipmentRate:170},
+  {itemCode:"B-18.2",description:"Dense bituminous macadam (DBM) 50mm compacted",unit:"sqm",rate:415,chapter:"Roads",category:"roadwork",laborRate:65,materialRate:285,equipmentRate:65},
+  {itemCode:"B-18.3",description:"Bituminous concrete (BC) wearing course 40mm",unit:"sqm",rate:365,chapter:"Roads",category:"roadwork",laborRate:55,materialRate:255,equipmentRate:55},
+  {itemCode:"B-13.2",description:"Integral crystalline waterproofing to RCC water tanks",unit:"sqm",rate:365,chapter:"Waterproofing",category:"waterproofing",laborRate:115,materialRate:220,equipmentRate:30},
+  {itemCode:"B-13.3",description:"APP modified bitumen membrane 3mm on terrace",unit:"sqm",rate:485,chapter:"Waterproofing",category:"waterproofing",laborRate:140,materialRate:310,equipmentRate:35},
+  {itemCode:"B-14.3",description:"Hardwood panelled door shutter 40mm with frame",unit:"sqm",rate:5850,chapter:"Doors & Windows",category:"woodwork",laborRate:950,materialRate:4500,equipmentRate:400},
+  {itemCode:"B-14.4",description:"UPVC casement window with glazing and hardware",unit:"sqm",rate:4750,chapter:"Doors & Windows",category:"woodwork",laborRate:820,materialRate:3580,equipmentRate:350},
+  {itemCode:"B-14.5",description:"MS grill/railing fabricated and fixed",unit:"kg",rate:118,chapter:"Doors & Windows",category:"steel",laborRate:30,materialRate:80,equipmentRate:8},
 ];
 const MAT_RATES = {
-  cpwd:{cement:380,sand:1850,fineSand:2100,agg20:1650,bricks:8.5,steel:68,bindwire:78,water:150,earth:120,tiles600:750,tiles300:420,paint:320,primer:180,putty:35,bitumen:65,cpvc20:85,pvc110:210,fittings:60,wire:22,conduit:35,switchset:260,door:4850,frame:520,hardware:480,alum:5800},
-  bihar:{cement:350,sand:1550,fineSand:1800,agg20:1400,bricks:7.0,steel:64,bindwire:72,water:120,earth:95,tiles600:620,tiles300:350,paint:280,primer:155,putty:30,bitumen:58,cpvc20:72,pvc110:180,fittings:50,wire:19,conduit:30,switchset:220,door:4200,frame:450,hardware:400,alum:5000}
+  cpwd:{cement:380,sand:1850,fineSand:2100,agg20:1650,agg40:1500,bricks:8.5,aacblock:55,stone:1250,steel:68,bindwire:78,water:150,earth:120,tiles600:750,tiles300:420,antiskid:560,kota:680,granite:1850,marble:2150,hardener:42,paint:320,extpaint:185,distemper:95,enamel:285,primer:180,putty:35,bitumen:65,membrane:340,cpvc20:85,cpvc25:120,pvc110:210,pvc75:155,fittings:60,wire:22,cable16:240,conduit:35,switchset:260,mcbboard:5200,door:4850,hardwooddoor:5350,upvcwin:4100,frame:520,hardware:480,alum:5800,msgrill:90,gypsum:420,mineralfibre:480,basin:3000,wc:6000,cptap:760,sink:3500,gsb:1370,dbm:330,bc:295,shutterply:62,formoil:8,nails:75,timber:1450},
+  bihar:{cement:350,sand:1550,fineSand:1800,agg20:1400,agg40:1280,bricks:7.0,aacblock:48,stone:1050,steel:64,bindwire:72,water:120,earth:95,tiles600:620,tiles300:350,antiskid:470,kota:580,granite:1620,marble:1880,hardener:38,paint:280,extpaint:160,distemper:82,enamel:250,primer:155,putty:30,bitumen:58,membrane:300,cpvc20:72,cpvc25:105,pvc110:180,pvc75:135,fittings:50,wire:19,cable16:210,conduit:30,switchset:220,mcbboard:4600,door:4200,hardwooddoor:4500,upvcwin:3580,frame:450,hardware:400,alum:5000,msgrill:80,gypsum:360,mineralfibre:410,basin:2520,wc:5180,cptap:640,sink:3000,gsb:1170,dbm:285,bc:255,shutterply:55,formoil:7,nails:68,timber:1250}
 };
 
 /* ---------- MATERIAL CALCULATION ENGINE (grade / thickness / mix aware) ---------- */
@@ -202,51 +285,88 @@ function getMaterials(it){
   const d=(it.description||"").toLowerCase(),q=it.quantity,o=[];
   const add=(m,u,qty,rk,w)=>{if(qty>0)o.push({m,u,qty,rk,w});};
   switch(it.category){
-    case "concrete":{const mix=parseConcrete(d);
+    case "concrete":{const mix=parseConcrete(d);const lean=/1\s*:\s*[45]\s*:|1\s*:\s*3\s*:|\bm[\s-]?(5|7\.5|10)\b|40\s*mm|lean|levelling|pcc/.test(d);
       add("Cement (OPC 43)","bag",q*mix.cement,"cement",2);
-      add("Coarse Sand","cum",q*mix.sand,"sand",10);
-      add("Stone Aggregate 20mm","cum",q*mix.agg,"agg20",5);
-      add("Water","kl",q*0.16,"water",0);break;}
-    case "masonry":{const r=parseRatio(d,6),mp=mortarPerCum(r),half=/half brick|115|on edge/.test(d);
-      if(it.unit==="sqm"||half){const mv=0.03; // half-brick wall per sqm
-        add("First Class Bricks","nos",q*60,"bricks",5);
-        add("Cement (OPC 43)","bag",q*mv*mp.cement,"cement",3);
-        add("Coarse Sand","cum",q*mv*mp.sand,"sand",10);
-      }else{const mv=0.23; // mortar fraction per cum brickwork
-        add("First Class Bricks","nos",q*500,"bricks",5);
-        add("Cement (OPC 43)","bag",q*mv*mp.cement,"cement",3);
-        add("Coarse Sand","cum",q*mv*mp.sand,"sand",10);}break;}
+      add(lean?"Coarse Sand":"Coarse Sand","cum",q*mix.sand,"sand",10);
+      add(lean?"Stone Aggregate 40mm":"Stone Aggregate 20mm","cum",q*mix.agg,lean?"agg40":"agg20",5);
+      add("Water","kl",q*0.16,"water",0);
+      if(/waterproof|dpc|damp proof/.test(d))add("Waterproofing Compound","kg",q*1.0,"primer",2);break;}
+    case "masonry":{const r=parseRatio(d,6),mp=mortarPerCum(r);
+      if(/aac/.test(d)){ // AAC block masonry
+        if(it.unit==="sqm"){add("AAC Block 100mm",   "nos",q*8.4,"aacblock",4);add("Block Jointing Mortar","bag",q*0.06,"cement",5);}
+        else{add("AAC Block 200mm","nos",q*36,"aacblock",4);add("Cement (OPC 43)","bag",q*0.5,"cement",3);add("Coarse Sand","cum",q*0.04,"sand",10);}break;}
+      if(/rubble|stone masonry/.test(d)){add("Rubble Stone","cum",q*1.25,"stone",5);const mv=0.34;add("Cement (OPC 43)","bag",q*mv*mp.cement,"cement",3);add("Coarse Sand","cum",q*mv*mp.sand,"sand",10);break;}
+      const half=/half brick|115|on edge/.test(d);
+      if(it.unit==="sqm"||half){const mv=0.03;add("First Class Bricks","nos",q*60,"bricks",5);add("Cement (OPC 43)","bag",q*mv*mp.cement,"cement",3);add("Coarse Sand","cum",q*mv*mp.sand,"sand",10);}
+      else{const mv=0.23;add("First Class Bricks","nos",q*500,"bricks",5);add("Cement (OPC 43)","bag",q*mv*mp.cement,"cement",3);add("Coarse Sand","cum",q*mv*mp.sand,"sand",10);}break;}
+    case "formwork":{ // amortized over ~8-10 reuses
+      add("Shuttering Plywood 12mm","sqm",q*0.12,"shutterply",10);
+      add("Wooden Battens/Props","cft",q*0.30,"timber",8);
+      add("Shuttering Oil","ltr",q*0.05,"formoil",5);
+      add("Nails & Binding","kg",q*0.10,"nails",5);break;}
     case "plastering":{const t=parseThickness(d,12),r=parseRatio(d,6),mp=mortarPerCum(r),v=t/1000;
       add("Cement (OPC 43)","bag",q*v*mp.cement,"cement",5);
-      add("Fine Sand","cum",q*v*mp.sand,"fineSand",10);break;}
-    case "flooring":{const cer=/ceramic|300\s*x\s*300|300x300/.test(d),mp=mortarPerCum(4),bed=0.02;
-      add(cer?"Ceramic Tiles 300x300":"Vitrified Tiles 600x600","sqm",q*1.05,cer?"tiles300":"tiles600",5);
+      add("Fine Sand","cum",q*v*mp.sand,"fineSand",10);
+      if(/neeru|punning|white cement/.test(d))add("White Cement","kg",q*0.4,"putty",5);break;}
+    case "flooring":{const mp=mortarPerCum(4),bed=0.02;
+      if(/marble/.test(d)){add("Marble Slab 20mm","sqm",q*1.03,"marble",3);}
+      else if(/granite/.test(d)){add("Granite Slab 18mm","sqm",q*1.03,"granite",3);}
+      else if(/kota/.test(d)){add("Kota Stone 25mm","sqm",q*1.04,"kota",4);}
+      else if(/floor hardener|hardener/.test(d)){const mix=parseConcrete("1:2:4");add("Cement (OPC 43)","bag",q*0.04*mix.cement+q*0,"cement",5);add("Floor Hardener","kg",q*3.0,"hardener",5);}
+      else if(/anti.?skid/.test(d)){add("Anti-skid Tiles 300x300","sqm",q*1.05,"antiskid",5);}
+      else if(/ceramic|300\s*x\s*300|300x300/.test(d)){add("Ceramic Tiles 300x300","sqm",q*1.05,"tiles300",5);}
+      else{add("Vitrified Tiles 600x600","sqm",q*1.05,"tiles600",5);}
       add("Cement (OPC 43)","bag",q*bed*mp.cement,"cement",5);
       add("Coarse Sand","cum",q*bed*mp.sand,"sand",10);break;}
-    case "steel":add("HYSD Steel Fe-500D","kg",q*1.0,"steel",3);add("Binding Wire","kg",q*0.01,"bindwire",5);break;
+    case "steel":
+      if(/grill|railing/.test(d)){add("MS Grill/Railing Sections","kg",q*1.0,"msgrill",3);add("Welding & Consumables","kg",q*0.02,"bindwire",5);}
+      else{add("HYSD Steel Fe-500D","kg",q*1.0,"steel",3);add("Binding Wire","kg",q*0.01,"bindwire",5);}break;
     case "painting":{
-      if(/distemper/.test(d))add("Acrylic Distemper","ltr",q*0.18,"paint",8);
-      else if(/enamel/.test(d))add("Synthetic Enamel Paint","ltr",q*0.13,"paint",8);
+      if(/distemper/.test(d))add("Acrylic Distemper","ltr",q*0.18,"distemper",8);
+      else if(/enamel/.test(d)){add("Synthetic Enamel Paint","ltr",q*0.13,"enamel",8);add("Wood/Metal Primer","ltr",q*0.10,"primer",5);break;}
+      else if(/exterior|weatherproof|apex/.test(d)){add("Exterior Emulsion (Apex)","ltr",q*0.20,"extpaint",8);add("Exterior Primer","ltr",q*0.10,"primer",5);break;}
+      else if(/putty/.test(d)){add("Wall Putty","kg",q*1.6,"putty",10);break;}
       else add("Acrylic Emulsion Paint","ltr",q*0.18,"paint",8);
       add("Cement Primer","ltr",q*0.10,"primer",5);
       add("Wall Putty","kg",q*0.45,"putty",10);break;}
+    case "sanitary":{
+      if(/wash basin|basin|wash hand/.test(d)){add("Wash Basin (vitreous china)","nos",q*1,"basin",0);add("CP Fittings & Waste","set",q*1,"cptap",0);}
+      else if(/water closet|ewc|closet|w\.c/.test(d)){add("EWC with Cistern","nos",q*1,"wc",0);add("Seat Cover & Fittings","set",q*1,"cptap",0);}
+      else if(/sink/.test(d)){add("SS Kitchen Sink","nos",q*1,"sink",0);add("Sink Waste Coupling","set",q*1,"cptap",0);}
+      else if(/urinal/.test(d)){add("Urinal (vitreous china)","nos",q*1,"basin",0);}
+      else if(/cock|tap/.test(d)){add("CP Brass Tap/Cock","nos",q*1,"cptap",0);}
+      else{add("Sanitary Fixture","nos",q*1,"basin",0);}break;}
+    case "falseceiling":{
+      if(/mineral fibre|grid/.test(d)){add("Mineral Fibre Tiles 600x600","sqm",q*1.0,"mineralfibre",5);add("GI Grid Framework","sqm",q*1.0,"giframe",5);}
+      else{add("Gypsum Board 12.5mm","sqm",q*1.05,"gypsum",5);add("GI Framework & Channels","sqm",q*1.0,"giframe",5);add("Jointing Compound & Screws","sqm",q*1.0,"nails",5);}break;}
+    case "roadwork":{
+      if(/dbm|dense bituminous/.test(d)){add("DBM Bituminous Mix","sqm",q*1.0,"dbm",3);add("Bitumen (VG-30)","kg",q*5.5,"bitumen",3);}
+      else if(/bituminous concrete|\bbc\b|wearing/.test(d)){add("Bituminous Concrete Mix","sqm",q*1.0,"bc",3);add("Bitumen (VG-30)","kg",q*5.0,"bitumen",3);}
+      else if(/gsb|granular sub/.test(d)){add("Granular Sub-base Material","cum",q*1.0,"gsb",5);}
+      else{add("Aggregate (graded)","cum",q*1.0,"agg40",5);}break;}
     case "plumbing":{
       if(/110|drain|soil|waste/.test(d))add("PVC Pipe 110mm","rmt",q*1.0,"pvc110",5);
+      else if(/75/.test(d))add("PVC Pipe 75mm","rmt",q*1.0,"pvc75",5);
+      else if(/25\s*mm/.test(d))add("CPVC Pipe 25mm","rmt",q*1.0,"cpvc25",5);
       else add("CPVC Pipe 20mm","rmt",q*1.0,"cpvc20",5);
       add("Pipe Fittings","nos",q*0.4,"fittings",0);break;}
     case "electrical":
+      if(/distribution board|mcb|db\b/.test(d)){add("MCB Distribution Board","nos",q*1,"mcbboard",0);break;}
+      if(/cable|armoured/.test(d)){add("Armoured Cable 16sqmm","rmt",q*1.05,"cable16",3);break;}
       add("PVC Conduit 20mm","rmt",q*8,"conduit",5);
       add("Copper Wire 1.5sqmm","rmt",q*15,"wire",8);
       add("Switch/Socket & Box","nos",q*1,"switchset",0);break;
-    case "earthwork":{ // excavation consumes no material; only filling does
+    case "earthwork":{
       if(/sand/.test(d))add("Filling Sand","cum",q*1.0,"sand",5);
-      else if(/fill/.test(d))add("Earth / Murrum Filling","cum",q*1.0,"earth",0);break;}
+      else if(/fill/.test(d))add("Earth / Murrum Filling","cum",q*1.0,"earth",0);
+      else if(/anti.?termite/.test(d))add("Anti-termite Chemical","ltr",q*0.005,"formoil",2);break;}
     case "waterproofing":
-      add("Bitumen Felt","sqm",q*1.1,"bitumen",10);
-      add("Bitumen 80/100","kg",q*1.5,"bitumen",5);
-      add("Primer","ltr",q*0.2,"primer",5);break;
+      if(/membrane|app/.test(d)){add("APP Bitumen Membrane 3mm","sqm",q*1.1,"membrane",8);add("Bitumen Primer","ltr",q*0.25,"primer",5);}
+      else if(/crystalline|integral/.test(d)){add("Crystalline Waterproof Coating","kg",q*1.2,"primer",5);}
+      else{add("Bitumen Felt","sqm",q*1.1,"bitumen",10);add("Bitumen 80/100","kg",q*1.5,"bitumen",5);add("Primer","ltr",q*0.2,"primer",5);}break;
     case "woodwork":{
-      if(/window|aluminium|aluminum/.test(d)){add("Aluminium Window Assembly","sqm",q*1.0,"alum",2);}
+      if(/window/.test(d)){if(/upvc/.test(d))add("UPVC Window Assembly","sqm",q*1.0,"upvcwin",2);else add("Aluminium Window Assembly","sqm",q*1.0,"alum",2);}
+      else if(/panel|hardwood|salwood|teak/.test(d)){add("Hardwood Panelled Shutter","sqm",q*1.0,"hardwooddoor",0);add("Door Frame (Hardwood)","rmt",q*5.5,"frame",10);}
       else{add("Flush Door Shutter","sqm",q*1.0,"door",0);add("Door Frame (Sal Wood)","rmt",q*5.5,"frame",10);}
       add("Hardware Set","set",q*1,"hardware",0);break;}
   }
@@ -254,30 +374,38 @@ function getMaterials(it){
 }
 
 const CAT_KEYWORDS = {
-  earthwork:["earth","excavation","filling","embankment","cutting","grading","trench"],
-  concrete:["concrete","rcc","pcc","cement concrete","m-20","m-25","m-30","m-15"],
-  masonry:["brick","masonry","block work","stone masonry"],
-  steel:["steel","reinforcement","rebar","hysd","tmt"],
+  earthwork:["earth work","excavation","filling","embankment","cutting","grading","trench","anti-termite","anti termite","disposal of surplus"],
+  roadwork:["bituminous","macadam","dbm","wearing course","granular sub","gsb","wbm","wmm","tack coat","prime coat","road crust"],
+  formwork:["centering","shuttering","formwork","form work","scaffolding","staging","form-work"],
+  concrete:["concrete","rcc","pcc","cement concrete","m-15","m-20","m-25","m-30","m-35","rmc","damp proof course","dpc"],
+  masonry:["brick","masonry","block work","aac block","aac","block masonry","partition wall","stone masonry","rubble"],
+  steel:["steel","reinforcement","rebar","hysd","tmt","grill","railing"],
+  falseceiling:["false ceiling","gypsum board","mineral fibre","grid ceiling","gypboard","ceiling tile"],
   plastering:["plaster","rendering","neeru","punning"],
-  flooring:["floor","tile","vitrified","ceramic","marble","granite","kota"],
-  painting:["paint","distemper","emulsion","enamel","primer","putty"],
-  plumbing:["plumb","pipe","pvc","cpvc","gi pipe","fitting","sanitary","tap"],
-  electrical:["electric","wiring","switch","socket","cable","conduit","light point","fan","power point"],
-  waterproofing:["waterproof","bitumen","membrane","damp proof"],
-  woodwork:["door","window","shutter","frame","wood","timber","flush","aluminium"]
+  flooring:["floor","tile","vitrified","ceramic","marble","granite","kota","skirting"],
+  painting:["paint","distemper","emulsion","enamel","primer","putty","whitewash","colour wash"],
+  sanitary:["wash basin","water closet"," ewc","urinal","cistern","kitchen sink","sink","pillar cock","bib cock","sanitary ware","wash hand"],
+  plumbing:["plumb","pipe","pvc","cpvc","gi pipe","fitting","sanitary","tap","gully trap","floor trap","nahani"],
+  electrical:["electric","wiring","switch","socket","cable","conduit","light point","fan","power point","distribution board","mcb"],
+  waterproofing:["waterproof","bitumen","membrane","damp proof","crystalline"],
+  woodwork:["door","window","shutter","frame","wood","timber","flush","aluminium","upvc"]
 };
 
-const CAT_COLORS={concrete:"#3b82f6",masonry:"#ef4444",steel:"#475569",plastering:"#eab308",flooring:"#a855f7",painting:"#ec4899",plumbing:"#06b6d4",electrical:"#f97316",earthwork:"#b45309",waterproofing:"#14b8a6",woodwork:"#f59e0b",misc:"#94a3b8"};
+const CAT_COLORS={concrete:"#3b82f6",masonry:"#ef4444",steel:"#475569",plastering:"#eab308",flooring:"#a855f7",painting:"#ec4899",plumbing:"#06b6d4",electrical:"#f97316",earthwork:"#b45309",waterproofing:"#14b8a6",woodwork:"#f59e0b",formwork:"#8b5cf6",sanitary:"#0ea5e9",falseceiling:"#64748b",roadwork:"#78716c",misc:"#94a3b8"};
 
 /* ---------- UTILITIES ---------- */
 const fmtINR=n=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(n||0);
 const fmtNum=n=>new Intl.NumberFormat("en-IN",{maximumFractionDigits:2}).format(n||0);
 function detectCategory(desc,unit){
   const l=(desc||"").toLowerCase(),u=(unit||"").toLowerCase();
-  // Steel is measured by weight (kg/MT/quintal) — disambiguate from "RCC ... reinforcement"
-  if(/\b(hysd|tmt|rebar)\b/.test(l)||(/(reinforc|steel)/.test(l)&&(u==="kg"||u==="mt"||u==="quintal")))return "steel";
-  // Electrical points/wiring — "point" unit & "wiring"/"conductor" override generic "pvc" pipe match
-  if(u==="point"||/\bwiring\b|conductor|light point|fan point|power point/.test(l))return "electrical";
+  // 1) Steel by weight (kg/MT) or structural sections / grill / railing
+  if(/\b(hysd|tmt|rebar|grill|railing)\b/.test(l)||(/(reinforc|structural steel|steel bar|steel work|steel section)/.test(l)&&(u==="kg"||u==="mt"||u==="quintal")))return "steel";
+  // 2) Sanitary fixtures (before plumbing & before generic 'steel' in sink)
+  if(/wash basin|water closet|\bewc\b|urinal|cistern|kitchen sink|\bsink\b|wash hand|pillar cock|bib cock|sanitary ware/.test(l))return "sanitary";
+  // 3) Joinery: windows/doors (before plumbing so 'uPVC' window isn't read as PVC pipe)
+  if(/\bwindow\b|casement|glazing|flush door|panelled door|door shutter|shutter with frame/.test(l))return "woodwork";
+  // 4) Electrical points/wiring ('point' unit & wiring/conductor override generic 'pvc')
+  if(u==="point"||/\bwiring\b|conductor|light point|fan point|power point|distribution board|\bmcb\b/.test(l))return "electrical";
   for(const[c,ks]of Object.entries(CAT_KEYWORDS)){if(ks.some(k=>l.includes(k)))return c;}
   return "misc";
 }
@@ -340,18 +468,37 @@ function analyze(items,source){
   const overhead=(matCost+laborCost)*0.12;
   const estCost=matCost+laborCost+equipCost+overhead;
   const boqStated=items.reduce((s,i)=>s+(i.amount||0),0);
+  const pricedItems=items.filter(i=>i.amount&&i.amount>0).length;
+  const hasBoqPrices=pricedItems>=Math.max(1,Math.round(items.length*0.5)); // majority priced
+  // Authoritative project value = BOQ's own priced total when available (100% as submitted),
+  // otherwise fall back to the DSR-based estimate.
+  const projectValue=hasBoqPrices?boqStated:Math.round(estCost);
   const coverage=items.length?matched/items.length:0;
   const confidence=Math.round((0.6+0.37*coverage)*100)/100;
-  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,summary:{totalItems:items.length,totalMaterials:mats.length,estimatedCost:estCost,laborCost:Math.round(laborCost),materialCost:Math.round(matCost),equipmentCost:Math.round(equipCost),overheadCost:Math.round(overhead),boqStatedCost:Math.round(boqStated),confidence},source};
+  return {materials:mats,categoryBreakdown:catBd,totalCost:estCost,summary:{totalItems:items.length,totalMaterials:mats.length,estimatedCost:estCost,projectValue,hasBoqPrices,pricedItems,laborCost:Math.round(laborCost),materialCost:Math.round(matCost),equipmentCost:Math.round(equipCost),overheadCost:Math.round(overhead),boqStatedCost:Math.round(boqStated),confidence},source};
 }
-function bestMatch(it,rates){let best=null,bs=0;const d=it.description.toLowerCase();for(const r of rates){const s=similarity(d,r.description.toLowerCase());if(s>bs&&s>0.3){bs=s;best=r;}}if(!best&&it.category)best=rates.find(r=>r.category===it.category)||null;return best;}
+function bestMatch(it,rates){
+  // 1) exact item-code match (highest confidence)
+  if(it.itemCode){const code=String(it.itemCode).trim().toLowerCase();const ic=rates.find(r=>r.itemCode.toLowerCase()===code||r.itemCode.toLowerCase()==="b-"+code);if(ic)return ic;}
+  // 2) best description similarity within same category when known
+  let best=null,bs=0;const d=it.description.toLowerCase();
+  for(const r of rates){if(it.category&&it.category!=="misc"&&r.category!==it.category)continue;const s=similarity(d,r.description.toLowerCase());if(s>bs&&s>0.28){bs=s;best=r;}}
+  // 3) fallback: best similarity across all, then category default
+  if(!best){for(const r of rates){const s=similarity(d,r.description.toLowerCase());if(s>bs&&s>0.3){bs=s;best=r;}}}
+  if(!best&&it.category)best=rates.find(r=>r.category===it.category)||null;
+  return best;
+}
 function consolidate(arr){const m=new Map();for(const x of arr){const k=x.materialName+"|"+x.unit;if(m.has(k)){const e=m.get(k);e.quantity+=x.quantity;e.totalWithWastage+=x.totalWithWastage;e.amount+=x.amount;}else m.set(k,{...x});}return [...m.values()].map(x=>({...x,quantity:Math.round(x.quantity*100)/100,totalWithWastage:Math.round(x.totalWithWastage*100)/100,amount:Math.round(x.amount*100)/100})).sort((a,b)=>b.amount-a.amount);}
 function categoryBreakdown(mats){const m=new Map();for(const x of mats){if(!m.has(x.category))m.set(x.category,[]);m.get(x.category).push(x);}const total=mats.reduce((s,x)=>s+x.amount,0);return [...m.entries()].map(([category,a])=>{const c=a.reduce((s,x)=>s+x.amount,0);return{category,materialCount:a.length,totalCost:Math.round(c),percentage:total?Math.round(c/total*100):0};}).sort((a,b)=>b.totalCost-a.totalCost);}
 function genDPR(analysis,duration=180){
-  const daily=analysis.totalCost/duration;const entries=[];
+  const s=analysis.summary;
+  // Anchor budget to the authoritative project value (BOQ price when available)
+  const t=s.projectValue||analysis.totalCost;
+  const scale=analysis.totalCost?t/analysis.totalCost:1; // distribute splits to match project value
+  const labor=Math.round(s.laborCost*scale),material=Math.round(s.materialCost*scale),equipment=Math.round(s.equipmentCost*scale),overhead=Math.round(t-labor-material-equipment);
+  const daily=t/duration;const entries=[];
   for(let d=1;d<=Math.min(7,duration);d++){const prog=d/duration*100;const dc=daily*(0.8+Math.random()*0.4);entries.push({day:d,date:new Date(Date.now()+d*864e5).toISOString().split("T")[0],planned:Math.round(daily),actual:Math.round(dc),cumP:Math.round(daily*d),cumA:Math.round(dc*d),progress:Math.round(prog*10)/10,variance:Math.round((daily-dc))});}
-  const s=analysis.summary,t=analysis.totalCost;
-  return {projectSummary:{totalBudget:Math.round(t),dailyBudget:Math.round(daily),duration,laborBudget:s.laborCost,materialBudget:s.materialCost,equipmentBudget:s.equipmentCost,overheadBudget:s.overheadCost},dprEntries:entries,costBreakdown:{labor:Math.round(s.laborCost/t*100),material:Math.round(s.materialCost/t*100),equipment:Math.round(s.equipmentCost/t*100),overhead:Math.round(s.overheadCost/t*100)}};
+  return {projectSummary:{totalBudget:Math.round(t),dailyBudget:Math.round(daily),duration,laborBudget:labor,materialBudget:material,equipmentBudget:equipment,overheadBudget:overhead,priceSource:s.hasBoqPrices?"BOQ":"DSR"},dprEntries:entries,costBreakdown:{labor:Math.round(labor/t*100),material:Math.round(material/t*100),equipment:Math.round(equipment/t*100),overhead:Math.round(overhead/t*100)}};
 }
 
 /* ---------- SAMPLE BOQ ---------- */
@@ -403,9 +550,9 @@ function vDashboard(){
   </div>
   <div class="grid g4" style="margin-bottom:20px">
     ${stat("🏢","Projects Analyzed",STATE.result?"1":"0","Live")}
-    ${stat("📦","Materials Tracked","11+","CPWD+Bihar")}
+    ${stat("📦","Materials Tracked","45+","CPWD+Bihar")}
     ${stat("💰","DSR Rate Items",(CPWD_RATES.length+BIHAR_RATES.length),"2024 Rates")}
-    ${stat("📊","AI Accuracy","85%","v1.0")}
+    ${stat("📊","Engine Coverage","15 trades","v2.0")}
   </div>
   <div class="card"><h3>How It Works</h3><div class="grid g4">
     ${step(1,"Upload BOQ","Upload your Excel/CSV Bill of Quantity file")}
@@ -493,7 +640,7 @@ function vAnalysis(){
   const r=STATE.result,s=r.summary;
   return `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>BOQ Analysis Results</h2><p class="sub" style="margin:4px 0 0">${r.projectName} · ${r.fileName} · ${r.itemCount} items · ${r.source.toUpperCase()} DSR</p></div><button class="btn btn-primary" onclick="exportAnalysis()">⬇️ Export Report</button></div>
   <div class="grid g4" style="margin:18px 0">
-    ${statBox("💰","Total Estimated Cost",fmtINR(s.estimatedCost),"#eff6ff","#1d4ed8")}
+    ${statBox("💰",s.hasBoqPrices?"Project Value (BOQ)":"Estimated Cost (DSR)",fmtINR(s.hasBoqPrices?s.projectValue:s.estimatedCost),"#eff6ff","#1d4ed8")}
     ${statBox("📦","Total Materials",s.totalMaterials+" items","#f0fdf4","#15803d")}
     ${statBox("📊","AI Confidence",(s.confidence*100).toFixed(0)+"%","#faf5ff","#7c3aed")}
     ${statBox("📋","BOQ Items",s.totalItems+" items","#fff7ed","#c2410c")}
@@ -515,7 +662,7 @@ function vAnalysis(){
     <thead><tr><th>#</th><th>Material</th><th>Category</th><th class="tr">Quantity</th><th>Unit</th><th class="tr">Rate</th><th class="tr">Wastage</th><th class="tr">Total Qty</th><th class="tr">Amount</th></tr></thead>
     <tbody>${r.materials.map((m,i)=>`<tr><td style="color:var(--muted-fg)">${i+1}</td><td style="font-weight:600">${m.materialName}</td><td><span class="pill" style="background:${CAT_COLORS[m.category]}22;color:${CAT_COLORS[m.category]}">${m.category}</span></td><td class="tr">${fmtNum(m.quantity)}</td><td style="color:var(--muted-fg)">${m.unit}</td><td class="tr">${fmtINR(m.rate)}</td><td class="tr" style="color:var(--orange)">${m.wastagePercent}%</td><td class="tr" style="font-weight:600">${fmtNum(m.totalWithWastage)}</td><td class="tr" style="font-weight:700">${fmtINR(m.amount)}</td></tr>`).join("")}</tbody>
   </table></div></div>
-  <div class="note note-blue">ℹ️ <strong>AI Analysis Notes:</strong> Rates based on ${r.source==="bihar"?"Bihar":"CPWD"} DSR 2024. Wastage percentages per IS standards. Actual costs may vary with local market conditions. Confidence: ${(s.confidence*100).toFixed(0)}%</div>`;
+  <div class="note note-blue">ℹ️ <strong>Accuracy model:</strong> ${s.hasBoqPrices?`Project price is taken <strong>directly from your uploaded BOQ</strong> (${s.pricedItems}/${s.totalItems} items priced) — exact to the document. ${r.source==="bihar"?"Bihar":"CPWD"} DSR 2024 is shown as an independent benchmark.`:`No rates found in the BOQ, so price is <strong>estimated from ${r.source==="bihar"?"Bihar":"CPWD"} DSR 2024</strong>.`} Material quantities use IS-code coefficients with grade/thickness/mix parsing and standard wastage. Match confidence: ${(s.confidence*100).toFixed(0)}%.</div>`;
 }
 const statBox=(ic,lbl,val,bg,fg)=>`<div class="stat" style="background:${bg};color:${fg};border-color:${fg}33"><div style="font-size:20px">${ic}</div><div style="font-size:12px;opacity:.85;margin-top:6px">${lbl}</div><div style="font-size:19px;font-weight:800;margin-top:2px">${val}</div></div>`;
 function costBar(lbl,amt,total,col){const p=total?(amt/total*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>${lbl}</span><span style="font-weight:600">${fmtINR(amt)} (${p.toFixed(0)}%)</span></div><div class="bar"><div style="width:${p}%;background:${col}"></div></div></div>`;}
